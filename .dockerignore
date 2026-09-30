@@ -1,0 +1,13 @@
+node_modules
+frontend
+backend
+data
+docs
+tests
+.git
+.github
+.tmp
+.superpowers
+**/__pycache__
+**/*.pyc
+reports/benchmark.md

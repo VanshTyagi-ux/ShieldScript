@@ -1,0 +1,6 @@
+# Local settings for docker-compose.yml: they hold the database password.
+.env
+
+# Python bytecode (the backend/ and frontend/ folders have their own ignore files)
+__pycache__/
+*.pyc

@@ -1,0 +1,15 @@
+# Render blueprint: New > Blueprint Instance, then pick this repository.
+# Render injects $PORT and terminates HTTPS in front of the container, so neither is configured here.
+services:
+  - type: web
+    name: xss-detector
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: TRUSTED_PROXY_HOPS   # Render's proxy appends the client address to X-Forwarded-For
+        value: "1"
+      - key: LOG_FORMAT
+        value: json
+      - key: ENABLE_HSTS          # safe because Render serves the site over HTTPS only
+        value: "1"

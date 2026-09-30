@@ -1,0 +1,215 @@
+{
+  "generated": "2026-09-29",
+  "dataset": {
+    "malicious_test": 2640,
+    "benign_test": 4948,
+    "hard_negatives": 49
+  },
+  "detectors": [
+    {
+      "name": "Rules",
+      "shipped": false,
+      "recall": 0.9424242424242424,
+      "precision": 1.0,
+      "f1": 0.9703588143525741,
+      "fpr": 0.0,
+      "accuracy": 0.9799683711122825,
+      "tp": 2488,
+      "fn": 152,
+      "fp": 0,
+      "tn": 4948,
+      "hard_fps": 1,
+      "hard_total": 49,
+      "samples": {
+        "misses": [
+          "<br><br><br><br><br><br><br><br><br><br>",
+          "<br><br><br><br><br><br><x id=x>#x",
+          "a=alert,a(1)",
+          "[1].find(alert)",
+          "top['al\\145rt'](1)",
+          "navigator.vibrate(500)",
+          "\"'%u3e%u3cscript%u3econfirm(42)%u3c/script%u3e",
+          "%u22%u27%u3e%u3cscript%u3econfirm(42)%u3c/script%u3e",
+          "jAvas\\Cript:confirm(42)",
+          "document.",
+          "top.",
+          "top["
+        ],
+        "false_positives": [],
+        "hard_false_positives": [
+          "onset = 3 days after symptoms"
+        ]
+      }
+    },
+    {
+      "name": "ML alone",
+      "shipped": false,
+      "recall": 0.9988636363636364,
+      "precision": 0.9981074943224829,
+      "f1": 0.998485422188565,
+      "fpr": 0.0010105092966855296,
+      "accuracy": 0.9989457037427517,
+      "tp": 2637,
+      "fn": 3,
+      "fp": 5,
+      "tn": 4943,
+      "hard_fps": 2,
+      "hard_total": 49,
+      "samples": {
+        "misses": [
+          "navigator.vibrate(500)",
+          "top.",
+          "On Mouse Over\u200b"
+        ],
+        "false_positives": [
+          "'left<<<<<<<<<<<<'",
+          "<enum 'Menu'>",
+          "'Hook'",
+          "d[key]",
+          "Overview"
+        ],
+        "hard_false_positives": [
+          "C:\\users\\public\\documents",
+          "<3 <3 <3"
+        ]
+      }
+    },
+    {
+      "name": "Naive hybrid (rules OR ML)",
+      "shipped": false,
+      "recall": 0.9988636363636364,
+      "precision": 0.9981074943224829,
+      "f1": 0.998485422188565,
+      "fpr": 0.0010105092966855296,
+      "accuracy": 0.9989457037427517,
+      "tp": 2637,
+      "fn": 3,
+      "fp": 5,
+      "tn": 4943,
+      "hard_fps": 3,
+      "hard_total": 49,
+      "samples": {
+        "misses": [
+          "navigator.vibrate(500)",
+          "top.",
+          "On Mouse Over\u200b"
+        ],
+        "false_positives": [
+          "'left<<<<<<<<<<<<'",
+          "<enum 'Menu'>",
+          "'Hook'",
+          "d[key]",
+          "Overview"
+        ],
+        "hard_false_positives": [
+          "C:\\users\\public\\documents",
+          "onset = 3 days after symptoms",
+          "<3 <3 <3"
+        ]
+      }
+    },
+    {
+      "name": "Hybrid (rules; ML escalates)",
+      "shipped": true,
+      "recall": 0.9515151515151515,
+      "precision": 1.0,
+      "f1": 0.9751552795031055,
+      "fpr": 0.0,
+      "accuracy": 0.9831312598840274,
+      "tp": 2512,
+      "fn": 128,
+      "fp": 0,
+      "tn": 4948,
+      "hard_fps": 1,
+      "hard_total": 49,
+      "samples": {
+        "misses": [
+          "<br><br><br><br><br><br><br><br><br><br>",
+          "<br><br><br><br><br><br><x id=x>#x",
+          "top['al\\145rt'](1)",
+          "navigator.vibrate(500)",
+          "\"'%u3e%u3cscript%u3econfirm(42)%u3c/script%u3e",
+          "%u22%u27%u3e%u3cscript%u3econfirm(42)%u3c/script%u3e",
+          "document.",
+          "top.",
+          "top[",
+          "eval(",
+          "onload",
+          "\"onerror"
+        ],
+        "false_positives": [],
+        "hard_false_positives": [
+          "onset = 3 days after symptoms"
+        ]
+      }
+    }
+  ],
+  "unseen_sources": [
+    {
+      "source": "XSS-BruteLogic.txt",
+      "payloads": 113,
+      "rules_recall": 0.9469026548672567,
+      "ml_recall": 1.0,
+      "ml_fpr": 0.0014147130153597412
+    },
+    {
+      "source": "XSS-Cheat-Sheet-PortSwigger.txt",
+      "payloads": 6042,
+      "rules_recall": 1.0,
+      "ml_recall": 1.0,
+      "ml_fpr": 0.002021018593371059
+    },
+    {
+      "source": "XSS-EnDe-evation.txt",
+      "payloads": 161,
+      "rules_recall": 0.5652173913043478,
+      "ml_recall": 0.7888198757763976,
+      "ml_fpr": 0.0006063055780113178
+    },
+    {
+      "source": "XSS-EnDe-h4k.txt",
+      "payloads": 204,
+      "rules_recall": 0.6225490196078431,
+      "ml_recall": 0.9313725490196079,
+      "ml_fpr": 0.0004042037186742118
+    },
+    {
+      "source": "XSS-innerht-ml.txt",
+      "payloads": 48,
+      "rules_recall": 1.0,
+      "ml_recall": 1.0,
+      "ml_fpr": 0.0010105092966855296
+    },
+    {
+      "source": "XSS-Jhaddix.txt",
+      "payloads": 107,
+      "rules_recall": 1.0,
+      "ml_recall": 1.0,
+      "ml_fpr": 0.0010105092966855296
+    },
+    {
+      "source": "XSS-OFJAAAH.txt",
+      "payloads": 1616,
+      "rules_recall": 0.8428217821782178,
+      "ml_recall": 0.994430693069307,
+      "ml_fpr": 0.0010105092966855296
+    },
+    {
+      "source": "XSS-Vectors-Mario.txt",
+      "payloads": 134,
+      "rules_recall": 0.8731343283582089,
+      "ml_recall": 1.0,
+      "ml_fpr": 0.0014147130153597412
+    }
+  ],
+  "unseen_weighted": {
+    "payloads": 8425,
+    "rules_recall": 0.949673590504451,
+    "ml_recall": 0.9932344213649852
+  },
+  "notes": [
+    "Many lines in public payload lists are fragments (e.g. `</scrip</scr`, `href=`, `top.`) rather than working attacks, so recall below 100% is expected, especially for the rule engine.",
+    "The ML model's benign training text is mostly English prose and code from the Python docs, so it partly learns \"looks like markup/code\" versus \"looks like prose\". Treat its false-positive rate as optimistic for real-world input such as rich-text comments; the hard-negative column is the harsher check.",
+    "The random-split numbers are optimistic (near-duplicate payloads leak across the split); the unseen-source table below is the fairer estimate."
+  ]
+}

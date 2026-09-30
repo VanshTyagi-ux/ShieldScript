@@ -1,0 +1,18 @@
+# The build context for backend/Dockerfile is the repository root. BuildKit uses this file (named after the
+# Dockerfile) instead of the root .dockerignore, which is written for the built-in server's image and excludes
+# data/. Everything is excluded, then only what the image needs is let back in: no tests, no .env, no
+# node_modules, no git history. Later lines win over earlier ones.
+*
+
+!backend/requirements.txt
+!backend/docker-entrypoint.sh
+!backend/app/
+!backend/scripts/
+!xss_detector/
+!data/payloads/
+!reports/benchmark.json
+
+# The backend does not serve the built UI bundle.
+xss_detector/static
+**/__pycache__
+**/*.pyc

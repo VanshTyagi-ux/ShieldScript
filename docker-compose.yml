@@ -1,0 +1,63 @@
+# The whole stack: PostgreSQL, the FastAPI backend and the React site (behind nginx).
+#
+#   docker compose up --build          then open http://localhost:3000   (API docs: http://localhost:8000/docs)
+#   docker compose down                stop it; the database survives in the "db-data" volume
+#   docker compose down -v             stop it and delete the database
+#
+# Settings come from the environment or a .env file next to this one; see .env.example. Every setting has a
+# default that works for local development.
+name: xss-detector
+
+services:
+  # PostgreSQL. Not published to the host: only the backend needs it. To reach it from a tool on your machine,
+  # add   ports: ["127.0.0.1:5432:5432"]   here.
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-xss}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-xss}
+      POSTGRES_DB: ${POSTGRES_DB:-xss_detector}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1 makes this test the real TCP server. Without it pg_isready reports "ready" during the image's
+      # first-run set-up, when a temporary server listens on the local socket only, and the backend would fail.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # The API: uvicorn on port 8000. On start it creates the tables and loads the payloads (safe to repeat).
+  backend:
+    build:
+      context: .                      # the repository root: the backend imports xss_detector/ and reads data/
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      # To use SQLite instead, set DATABASE_URL=sqlite:////data/app.db in .env (the db container then sits unused).
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER:-xss}:${POSTGRES_PASSWORD:-xss}@db:5432/${POSTGRES_DB:-xss_detector}}
+      SEED_ON_START: ${SEED_ON_START:-true}
+    volumes:
+      - backend-data:/data            # holds the SQLite file, if you use one
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8000}:8000"
+
+  # The React site: nginx serves it and forwards /api/ to the backend, so the browser talks to one origin.
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-3000}:8080"
+
+volumes:
+  db-data:
+  backend-data:
