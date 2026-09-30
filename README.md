@@ -90,6 +90,36 @@ Caveats, all repeated in `reports/benchmark.md`: many public payload "lines" are
 
 `python -m xss_detector demo` serves two identical comment boards on `http://127.0.0.1:8001`. Post the "Steal cookie" sample to `/vulnerable` and the injected script runs in your browser and reads a fake cookie; post it to `/protected` and it is rejected (and anything harmless is HTML-escaped, with a CSP that forbids inline scripts). Local only - comments stay in memory.
 
+## Dummy site and live feed
+
+The demo is a small dummy blog with two inputs on each board: a comment form (stored XSS) and a search box
+(reflected XSS). Its **protected** pages are a client of the main site: every input goes to `POST /api/scan` on the
+main site (port 8000), and the dummy site only accepts it if the detector says it is clean. The **vulnerable** pages
+do no scanning, on purpose.
+
+```powershell
+python -m xss_detector serve     # the main site, http://127.0.0.1:8000
+python -m xss_detector demo      # the dummy site, http://127.0.0.1:8001
+```
+
+Open `http://127.0.0.1:8000/live` while you use the dummy site: each scan appears there within about 2 seconds, with
+the verdict, score, the rules that fired and the input.
+
+- **Fails closed.** If the main site cannot be reached (down, slow, rate-limited, or an unusable answer) the protected
+  pages reject the input with "Detector unavailable, input not accepted" (HTTP 503). They never let input through
+  unscanned and never fall back to a local detector.
+- **Pointing at another main site.** `python -m xss_detector demo --detector-url http://host:port`, or the
+  `DETECTOR_URL` environment variable (default `http://127.0.0.1:8000`).
+- **How the feed works.** A scan request that carries `"source": "<name>"` (1-40 lowercase letters, digits or hyphens)
+  is recorded; the Scanner page sends none, so typing there never shows up. The last 100 events are kept in memory
+  only, and `GET /api/events` returns them newest first.
+- **Privacy.** The README says request bodies are never logged. The feed is a deliberate, narrow exception: it keeps
+  the first 200 characters of input, in memory, only for requests that name a `source`. It is **on by default only
+  when the server binds to a loopback address**; on a public host such as Render or Docker (`HOST=0.0.0.0`) it is
+  off unless you set `LIVE_FEED=1`, so visitors cannot read what other people submitted.
+- **Builds.** `/live` and `GET /api/events` belong to the built-in server. The FastAPI-backed build of the UI
+  (`VITE_BACKEND_PAGES=true`) leaves the page out, because that backend has no `/events`.
+
 ## The site
 
 `python -m xss_detector serve` serves a small multi-page site (a React app; see the UI section above for building it):
@@ -98,6 +128,7 @@ Caveats, all repeated in `reports/benchmark.md`: many public payload "lines" are
 |---|---|
 | `/` Home | A live auto-playing demo, headline numbers from the benchmark, features, and how to use it in your app |
 | `/scanner` | The live scanner: a score gauge, where the score comes from, session history and insights, copy-as-JSON and share links, and the protected form |
+| `/live` | The live feed of scans sent by other apps (see [Dummy site and live feed](#dummy-site-and-live-feed)) |
 | `/how-it-works` | An interactive walk through the three steps (normalize, match, score) on the real detector |
 | `/rules` | Every rule with search, filters and sorting, plus charts of weights and categories |
 | `/benchmarks` | Detector comparison, the unseen-source test, confusion counts, example misses, and the caveats |
@@ -112,9 +143,10 @@ Charts are hand-drawn SVG (no charting library); every chart has tooltips on hov
 
 | Endpoint | Body | Result |
 |---|---|---|
-| `POST /api/scan` | `{"text": "..."}` or `{"fields": {...}}` | score, level, findings, decoded text, `ml_probability` |
+| `POST /api/scan` | `{"text": "..."}` or `{"fields": {...}}`, optional `"source": "name"` | score, level, findings, decoded text, `ml_probability`; with a `source` the scan also goes to the live feed |
 | `POST /api/submit` | `{"fields": {"name","email","website","comment"}}` | `200` + HTML-escaped values, or `422` + per-field errors |
 | `GET /api/rules` | - | the rule catalog (id, name, category, weight, description), the level bands and the block threshold |
+| `GET /api/events` | - | the live feed: `{"events": [...], "enabled": bool}`, newest first, at most 100; empty and `enabled: false` when the feed is off |
 | `GET /api/benchmark` | - | the latest benchmark as JSON (`reports/benchmark.json`); `404` with instructions if not generated |
 | `GET /api/health` | - | `{"status", "rules", "ml_loaded", "bundle"}`; `503` (`"status": "degraded"`) if the frontend bundle is missing |
 
@@ -183,6 +215,7 @@ The server is stdlib-only and configured by environment variables (command-line 
 | `RATE_BURST` | `20` | short-burst allowance |
 | `TRUSTED_PROXY_HOPS` | `0` | proxies in front of the app whose `X-Forwarded-For` entry to trust |
 | `ENABLE_HSTS` | off | send `Strict-Transport-Security` (turn on only when the site is served over HTTPS) |
+| `LIVE_FEED` | `auto` | record scans that name a `source` for `/live`: `auto` (only on a loopback bind), `1` or `0` |
 
 **On Render:** push the repository to GitHub, then *New > Blueprint Instance* and pick it. `render.yaml` builds the `Dockerfile` (a non-root, stdlib-only image), points the platform health check at `/api/health`, and sets `TRUSTED_PROXY_HOPS=1`, `LOG_FORMAT=json` and `ENABLE_HSTS=1`. Render terminates HTTPS and injects `$PORT`. For Railway or Fly.io use the same variables; look at the `X-Forwarded-For` header your platform sends before choosing `TRUSTED_PROXY_HOPS`.
 
@@ -209,7 +242,7 @@ CI (`.github/workflows/ci.yml`) runs both test suites, `npm audit`, rebuilds the
 ```
 xss_detector/  detector.py (rule engine)  ml.py (ML + hybrid)  corpus.py / evaluate.py (benchmark)
                sanitizer.py  server.py  demo.py  cli.py  model.json  static/app.js (built UI bundle)
-               config.py (env settings)  ratelimit.py  logs.py  catalog.py / submit.py (shared with the backend)
+               config.py (env settings)  ratelimit.py  logs.py  events.py (live feed)  catalog.py / submit.py (shared with the backend)
 frontend/      React source for the UI (npm run build -> xss_detector/static/app.js; npm run dev -> :5173)
 backend/       FastAPI API: app/ (api, core, models, schemas, services)  scripts/ (seed_payloads)  tests/  Dockerfile
 docker-compose.yml  .env.example   PostgreSQL + backend + frontend (nginx); frontend/Dockerfile and frontend/nginx.conf
