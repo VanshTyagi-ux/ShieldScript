@@ -253,7 +253,7 @@ main.main-full-bleed { max-width: none; padding-left: 0; padding-right: 0; paddi
 .live-text { max-width: 360px; word-break: break-all; }
 .top-rules ul { padding: 0; margin: var(--space-3) 0 0; list-style: none; }
 .rules-group h3 { margin: 0; font-size: inherit; line-height: inherit; }
-.group-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); width: 100%; min-height: 0; padding: 0; color: inherit; background: transparent; border: 0; font: inherit; font-weight: 600; text-align: left; }
+.group-toggle { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--space-2); width: 100%; min-height: 0; padding: 0; color: inherit; background: transparent; border: 0; font: inherit; font-weight: 600; text-align: left; }
 .group-toggle:hover:not(:disabled) { color: var(--text); background: transparent; box-shadow: none; }
 .group-toggle:active:not(:disabled) { background: transparent; transform: none; }
 .group-toggle::before { content: "\\25B8"; color: var(--muted); }
