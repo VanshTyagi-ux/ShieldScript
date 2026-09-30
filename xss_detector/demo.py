@@ -98,14 +98,79 @@ _comments: dict[str, list[tuple[str, str]]] = {
     mode: [("Ada", "Welcome to the comment board!")] for mode in MODES
 }
 
-CSS = ("body{font:15px/1.5 system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 16px;color:#1c2330}"
-       "nav a{margin-right:14px}.card{border:1px solid #d8dce3;border-radius:8px;padding:12px 14px;margin:10px 0}"
-       "input,textarea{width:100%;padding:7px;margin:4px 0 10px;font:inherit;box-sizing:border-box}"
-       "button{padding:6px 12px;margin-right:6px;cursor:pointer}.samples button{font-size:12px}"
-       ".bad{background:#fdecef;border-color:#c81e3a}.ok{color:#1f7a44}.muted{color:#667085;font-size:13px}"
-       "#pwned{background:#c81e3a;color:#fff;padding:12px;border-radius:8px;font-weight:600;word-break:break-all}"
-       ".tag{display:inline-block;padding:1px 8px;border-radius:99px;color:#fff;font-size:12px;background:#c81e3a}"
-       ".tag.p{background:#1f7a44}")
+CSS = """
+:root{--bg:#f4f5f8;--surface:#fff;--text:#1c2330;--muted:#667085;--border:#d8dce3;--accent:#3b5bdb;--on-accent:#fff;
+--danger:#c81e3a;--danger-soft:#fdecef;--ok:#1f7a44;--ok-soft:#e6f4ea;--chip:#eef1f6;--radius:10px}
+@media (prefers-color-scheme: dark){:root{--bg:#0f141b;--surface:#171e28;--text:#e6e9ef;--muted:#9aa4b2;--border:#2b3544;
+--accent:#7c9cff;--on-accent:#0f141b;--danger:#ff6b81;--danger-soft:#3a1a22;--ok:#5fd08a;--ok-soft:#14301f;--chip:#212b39}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px}
+.site-header{background:var(--surface);border-bottom:1px solid var(--border)}
+.site-header .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 24px;min-height:60px}
+.brand{display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:18px;color:var(--text);text-decoration:none}
+.brand::before{content:"";width:18px;height:18px;border-radius:50%;background:var(--accent)}
+nav a{display:inline-block;padding:6px 12px;margin-left:4px;border-radius:99px;color:var(--muted);text-decoration:none;font-weight:600}
+nav a:hover{background:var(--chip);color:var(--text)}
+nav a[aria-current="page"]{background:var(--accent);color:var(--on-accent)}
+.banner{padding:10px 0;font-size:14px;border-bottom:1px solid var(--border)}
+.banner .wrap{display:flex;flex-wrap:wrap;gap:4px 12px}
+.banner.insecure{background:var(--danger-soft);color:var(--danger)}
+.banner.protected{background:var(--ok-soft);color:var(--ok)}
+main.wrap{padding-top:24px;padding-bottom:48px}
+.layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px;align-items:start}
+.card,.alert{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin:0 0 16px}
+.card h1{margin:0 0 4px;font-size:26px;line-height:1.25}
+.card h2,.comments h2{margin:0 0 10px;font-size:18px}
+.card h3{margin:16px 0 4px;font-size:17px}
+.lede{color:var(--muted);margin:4px 0 12px}
+label{display:block;font-weight:600;font-size:14px;margin-bottom:10px}
+input,textarea{display:block;width:100%;margin-top:4px;padding:9px 11px;font:inherit;color:var(--text);background:var(--bg);
+border:1px solid var(--border);border-radius:8px}
+button{padding:8px 16px;font:inherit;font-weight:600;color:var(--on-accent);background:var(--accent);border:0;border-radius:8px;cursor:pointer}
+button:hover{filter:brightness(1.08)}
+button.ghost{color:var(--text);background:var(--chip)}
+.samples{margin-top:12px;font-size:13px}
+.samples button{margin:6px 6px 0 0;padding:4px 10px;font-size:12px;font-weight:500;color:var(--text);background:var(--chip);border-radius:99px}
+.alert{border-left:5px solid var(--danger);background:var(--danger-soft)}
+.alert ul{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
+.alert li{padding:2px 10px;background:var(--surface);border:1px solid var(--border);border-radius:99px;font-size:13px}
+.comment{display:flex;gap:12px;align-items:flex-start}
+.comment>div{min-width:0;overflow-wrap:anywhere}
+.avatar{flex:none;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;
+background:var(--accent);color:var(--on-accent);font-weight:700}
+#pwned{background:var(--danger);color:#fff;padding:14px 16px;border-radius:var(--radius);font-weight:700;word-break:break-all;margin-bottom:16px}
+.ok{color:var(--ok)}.muted{color:var(--muted);font-size:13px}
+.tag{display:inline-block;padding:1px 10px;border-radius:99px;color:#fff;font-size:12px;font-weight:600;vertical-align:middle;background:var(--danger)}
+.tag.p{background:var(--ok)}
+code{padding:1px 5px;background:var(--chip);border-radius:5px;font-size:.9em}
+.clear{margin-top:8px}
+@media (max-width: 760px){.layout{grid-template-columns:1fr}nav a{margin:0 4px 0 0}}
+"""
+
+DOC_TITLE = "Bean & Byte"
+
+
+def _nav(current: str | None) -> str:
+    marks = {"home": "", "vulnerable": "", "protected": ""}
+    if current in marks:
+        marks[current] = ' aria-current="page"'
+    links = "".join(f'<a href="{href}"{marks[key]}>{label}</a>'
+                    for key, href, label in (("home", "/", "Home"), ("vulnerable", "/vulnerable", "Vulnerable"),
+                                             ("protected", "/protected", "Protected")))
+    return f'<nav aria-label="Main">{links}</nav>'
+
+
+def _header(current: str | None) -> str:
+    return (f'<header class="site-header"><div class="wrap"><a class="brand" href="/">{escape_html(DOC_TITLE)}</a>'
+            f'{_nav(current)}</div></header>')
+
+
+def _avatar(name: str) -> str:
+    initial = escape_html((name.strip()[:1] or "?").upper())
+    return f'<span class="avatar" aria-hidden="true">{initial}</span>'
 
 
 def render_page(mode: str, values: dict | None = None, blocked: dict | None = None,
@@ -116,10 +181,11 @@ def render_page(mode: str, values: dict | None = None, blocked: dict | None = No
     with _lock:
         comments = list(_comments[mode])
     if mode == "vulnerable":  # DELIBERATELY UNSAFE: raw interpolation
-        items = "".join(f'<div class="card"><b>{name}</b><br>{text}</div>' for name, text in comments)
-    else:
-        items = "".join(f'<div class="card"><b>{escape_html(name)}</b><br>{escape_html(text)}</div>'
+        items = "".join(f'<div class="card comment">{_avatar(name)}<div><b>{name}</b><br>{text}</div></div>'
                         for name, text in comments)
+    else:
+        items = "".join(f'<div class="card comment">{_avatar(name)}<div><b>{escape_html(name)}</b><br>'
+                        f'{escape_html(text)}</div></div>' for name, text in comments)
 
     samples = "".join(
         f'<button type="button" data-payload="{escape_html(payload)}">{escape_html(label)}</button>'
@@ -127,15 +193,15 @@ def render_page(mode: str, values: dict | None = None, blocked: dict | None = No
 
     alert = ""
     if unavailable:
-        alert = (f'<div class="card bad"><b>{UNAVAILABLE}.</b> The protected board asks the main site to scan every '
-                 f'input and will not accept anything it cannot scan. Start it with '
+        alert = (f'<div class="alert bad" role="alert"><b>{UNAVAILABLE}.</b> The protected board asks the main site '
+                 f'to scan every input and will not accept anything it cannot scan. Start it with '
                  f'<code>python -m xss_detector serve</code>.</div>')
     if blocked:
         rows = "".join(f"<li><code>{escape_html(f.get('rule_id', ''))}</code> {escape_html(f.get('name', ''))} "
                        f"<span class='muted'>({escape_html(f.get('match', ''))})</span></li>"
                        for f in blocked["findings"])
-        alert = (f'<div class="card bad"><b>Rejected:</b> field "{escape_html(blocked["field"])}" looks like XSS '
-                 f'({escape_html(blocked["level"])}, score {blocked["score"]}, '
+        alert = (f'<div class="alert bad" role="alert"><b>Rejected:</b> field "{escape_html(blocked["field"])}" looks '
+                 f'like XSS ({escape_html(blocked["level"])}, score {blocked["score"]}, '
                  f'ML {escape_html(str(blocked["ml_probability"]))}).<ul>{rows}</ul></div>')
 
     if query:
@@ -144,28 +210,48 @@ def render_page(mode: str, values: dict | None = None, blocked: dict | None = No
     else:
         result = ""
 
-    tag = '<span class="tag">insecure</span>' if mode == "vulnerable" else '<span class="tag p">protected</span>'
+    if mode == "vulnerable":
+        tag = '<span class="tag">insecure</span>'
+        banner = '<div class="banner insecure"><div class="wrap"><strong>Insecure board</strong><span>No scanning, raw HTML output.</span></div></div>'
+    else:
+        tag = '<span class="tag p">protected</span>'
+        banner = '<div class="banner protected"><div class="wrap"><strong>Protected board</strong><span>Scanned by the main site, escaped on output, CSP on.</span></div></div>'
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>{info['title']}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>{info['title']} - {escape_html(DOC_TITLE)}</title>
 <style>{CSS}</style></head><body>
-<nav><a href="/">Home</a><a href="/vulnerable">Vulnerable</a><a href="/protected">Protected</a></nav>
-<h1>{info['title']} {tag}</h1><p>{info['blurb']}</p>
+{_header(mode)}
+{banner}
+<main class="wrap">
 <div id="pwned" hidden></div>
 {alert}
-<h2>Search</h2>
+<div class="layout">
+<article class="card">
+<h1>{info['title']} {tag}</h1>
+<p class="lede">{info['blurb']}</p>
+<h3>Welcome to the blog</h3>
+<p>This is a made-up post so the page looks like a real blog. Below it are a search box and a comment form: two
+places where user input reaches the page, one stored and one reflected.</p>
+</article>
+<aside>
+<div class="card"><h2>Search</h2>
 <form method="get" action="/{mode}/search">
 <label>Search the blog<input name="q" value="{escape_html(query or '')}" autocomplete="off"></label>
-<button type="submit">Search</button></form>
+<button type="submit">Search</button></form></div>
 {result}
-<h2>Comment</h2>
+<div class="card"><h2>Comment</h2>
 <form method="post" action="/{mode}/comment">
 <label>Name<input name="name" value="{escape_html(values.get('name', ''))}" autocomplete="off"></label>
 <label>Comment<textarea name="comment" rows="3">{escape_html(values.get('comment', ''))}</textarea></label>
 <button type="submit">Post comment</button>
-<div class="samples muted">Try a sample: {samples}</div></form>
-<form method="post" action="/reset"><input type="hidden" name="mode" value="{mode}">
-<button>Clear comments</button></form>
+<div class="samples muted">Try a sample: {samples}</div></form></div>
+</aside>
+</div>
+<section class="comments">
 <h2>Comments</h2>{items}
+<form method="post" action="/reset" class="clear"><input type="hidden" name="mode" value="{mode}">
+<button class="ghost">Clear comments</button></form>
+</section>
+</main>
 <script src="/demo.js"></script></body></html>"""
 
 
@@ -174,15 +260,24 @@ def render_home(detector_url: str) -> str:
     status = (f'<span class="ok">Detector reachable</span> at {escape_html(detector_url)}' if up else
               f'<b>Detector not reachable</b> at {escape_html(detector_url)}: the protected pages will reject input '
               f'until you start it with <code>python -m xss_detector serve</code>.')
-    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>XSS demo</title>
-<style>{CSS}</style></head><body><h1>Dummy blog: stored and reflected XSS</h1>
-<p>Two identical boards, each with a comment form (stored XSS) and a search box (reflected XSS). Send the same
-attack to both and compare.</p>
-<div class="card"><a href="/vulnerable">Vulnerable board</a> - raw HTML output, no filtering.</div>
-<div class="card"><a href="/protected">Protected board</a> - scanned by the main site's detector + output escaping + CSP.</div>
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>XSS demo - {escape_html(DOC_TITLE)}</title>
+<style>{CSS}</style></head><body>
+{_header("home")}
+<main class="wrap">
+<div class="card"><h1>Dummy blog: stored and reflected XSS</h1>
+<p class="lede">Two identical boards, each with a comment form (stored XSS) and a search box (reflected XSS). Send the
+same attack to both and compare.</p></div>
+<div class="layout">
+<div class="card"><h2><a href="/vulnerable">Vulnerable board</a> <span class="tag">insecure</span></h2>
+<p>Raw HTML output, no filtering. The attack runs.</p></div>
+<div class="card"><h2><a href="/protected">Protected board</a> <span class="tag p">protected</span></h2>
+<p>Scanned by the main site's detector, escaped on output, with a CSP.</p></div>
+</div>
 <div class="card">{status}<br><a href="{escape_html(detector_url)}/live">Watch the live feed</a> on the main site.</div>
 <p class="muted">Local demo only. Comments live in memory and the cookie is a fake value.</p>
-</body></html>"""
+</main></body></html>"""
+
 
 DEMO_JS = """document.querySelectorAll('[data-payload]').forEach(function (b) {
   b.addEventListener('click', function () {

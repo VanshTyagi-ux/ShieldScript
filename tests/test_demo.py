@@ -212,6 +212,42 @@ class DemoTests(unittest.TestCase):
         _, _, down = self.request("/", base=self.down_demo())
         self.assertIn("Detector not reachable", down)
 
+    def test_pages_are_responsive_and_follow_the_system_colour_scheme(self):
+        for path in ("/", "/vulnerable", "/protected"):
+            with self.subTest(path=path):
+                body = self.request(path)[2]
+                self.assertIn('name="viewport"', body)
+                self.assertIn("prefers-color-scheme: dark", body)
+                self.assertIn("@media (max-width", body)
+
+    def test_pages_share_a_header_and_the_nav_marks_the_current_page(self):
+        for path in ("/", "/vulnerable", "/protected"):
+            self.assertIn('class="site-header"', self.request(path)[2])
+        vulnerable = self.request("/vulnerable")[2]
+        self.assertRegex(vulnerable, r'<a href="/vulnerable"[^>]*aria-current="page"')
+        self.assertNotRegex(vulnerable, r'<a href="/protected"[^>]*aria-current')
+        protected = self.request("/protected")[2]
+        self.assertRegex(protected, r'<a href="/protected"[^>]*aria-current="page"')
+        self.assertNotRegex(protected, r'<a href="/vulnerable"[^>]*aria-current')
+
+    def test_each_board_shows_its_status_strip(self):
+        self.assertIn('class="banner insecure"', self.request("/vulnerable")[2])
+        self.assertIn('class="banner protected"', self.request("/protected")[2])
+        self.assertNotIn('class="banner protected"', self.request("/vulnerable")[2])
+
+    def test_comments_show_an_avatar_with_the_authors_first_letter(self):
+        self.request("/protected/comment", {"name": "ada", "comment": "Nice post"})
+        board = self.request("/protected")[2].split("<h2>Comments</h2>")[1]
+        self.assertIn('<span class="avatar" aria-hidden="true">A</span>', board)
+        self.request("/protected/comment", {"name": "5 < 10", "comment": "hi"})
+        self.assertIn('<span class="avatar" aria-hidden="true">5</span>', self.request("/protected")[2])
+
+    def test_rejections_are_alerts_and_the_stolen_cookie_banner_is_still_there(self):
+        _, _, body = self.request("/protected/comment", {"name": "Mallory", "comment": ATTACK})
+        self.assertIn('role="alert"', body)
+        self.assertIn("Rejected", body)
+        self.assertIn('id="pwned"', self.request("/vulnerable")[2])
+
     def test_routes(self):
         self.assertEqual(self.request("/")[0], 200)
         self.assertEqual(self.request("/demo.js")[0], 200)
