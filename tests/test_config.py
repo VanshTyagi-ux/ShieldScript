@@ -3,7 +3,7 @@ import subprocess
 import sys
 import unittest
 
-from xss_detector.config import Config, ConfigError, DEFAULT_CONFIG
+from xss_detector.config import Config, ConfigError, DEFAULT_CONFIG, live_feed_enabled
 
 
 class ConfigFromEnvTests(unittest.TestCase):
@@ -22,6 +22,22 @@ class ConfigFromEnvTests(unittest.TestCase):
         self.assertEqual(config, Config(host="0.0.0.0", port=10000, log_level="DEBUG", log_format="json",
                                         max_body=1000, rate_limit=5, rate_burst=2, trusted_proxy_hops=1,
                                         enable_hsts=True))
+
+    def test_live_feed_defaults_to_auto(self):
+        self.assertEqual(Config().live_feed, "auto")
+        self.assertEqual(Config.from_env({"LIVE_FEED": "1"}).live_feed, "1")
+
+    def test_live_feed_rejects_other_values(self):
+        with self.assertRaises(ConfigError) as ctx:
+            Config.from_env({"LIVE_FEED": "maybe"})
+        self.assertIn("LIVE_FEED", str(ctx.exception))
+
+    def test_live_feed_enabled_rules(self):
+        for host in ("127.0.0.1", "localhost", "::1"):
+            self.assertTrue(live_feed_enabled(Config(), host), host)
+        self.assertFalse(live_feed_enabled(Config(), "0.0.0.0"))
+        self.assertTrue(live_feed_enabled(Config(live_feed="1"), "0.0.0.0"))
+        self.assertFalse(live_feed_enabled(Config(live_feed="0"), "127.0.0.1"))
 
     def test_config_is_frozen(self):
         with self.assertRaises(Exception):

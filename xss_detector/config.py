@@ -28,6 +28,7 @@ class Config:
     rate_burst: int = 20
     trusted_proxy_hops: int = 0
     enable_hsts: bool = False
+    live_feed: str = "auto"  # record scans that name a source for /live: "auto" (loopback hosts only), "1", "0"
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> "Config":
@@ -55,10 +56,21 @@ class Config:
             trusted_proxy_hops=read("TRUSTED_PROXY_HOPS", defaults.trusted_proxy_hops,
                                     lambda v: _int_between(v, 0, None)),
             enable_hsts=read("ENABLE_HSTS", defaults.enable_hsts, _boolean),
+            live_feed=read("LIVE_FEED", defaults.live_feed, lambda v: _choice(v, ("auto", "1", "0"))),
         )
 
 
 DEFAULT_CONFIG = Config()
+
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def live_feed_enabled(config: Config, host: str) -> bool:
+    """Whether the live feed runs: forced by LIVE_FEED=1/0, otherwise only on a loopback bind, so a public
+    deployment never shows visitors what other people submitted."""
+    if config.live_feed == "auto":
+        return host in LOOPBACK_HOSTS
+    return config.live_feed == "1"
 
 
 def _nonempty(value: str) -> str:
