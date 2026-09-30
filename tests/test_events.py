@@ -43,6 +43,21 @@ class EventLogTests(unittest.TestCase):
         self.assertEqual(set(event), {"id", "ts", "source", "field", "blocked", "score", "level", "rules", "text"})
         self.assertRegex(event["ts"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}\+00:00$")
 
+    def test_clear_returns_the_count_and_empties_the_log(self):
+        log = EventLog()
+        for _ in range(3):
+            add(log)
+        self.assertEqual(log.clear(), 3)
+        self.assertEqual(log.snapshot(), [])
+        self.assertEqual(log.clear(), 0)
+
+    def test_ids_keep_counting_after_a_clear(self):
+        log = EventLog()
+        add(log)
+        add(log)
+        log.clear()
+        self.assertEqual(add(log)["id"], 3)
+
     def test_concurrent_adds_lose_nothing(self):
         log = EventLog(maxlen=1000)
         threads = [threading.Thread(target=lambda: [add(log) for _ in range(50)]) for _ in range(8)]

@@ -477,11 +477,13 @@ class Handler(BaseHTTPRequestHandler):
         route = self.path.split("?", 1)[0]
         if route.startswith("/api/") and self._limited(API_COSTS.get(("POST", route), 1.0)):
             return
-        if route not in ("/api/scan", "/api/submit"):  # nothing else takes a body, so never parse one
+        if route not in ("/api/scan", "/api/submit", "/api/events/clear"):  # nothing else takes a body, so never parse one
             self._drain_body()
             return self._json(404, {"error": "Not found"})
         try:
             data = self._read_json()
+            if route == "/api/events/clear":
+                return self._clear_events()
             if route == "/api/scan":
                 return self._json(200, self._scan(data))
             if route == "/api/submit":
@@ -493,6 +495,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def _live_feed(self) -> bool:
         return getattr(self.server, "live_feed", False)
+
+    def _clear_events(self):
+        """Empty the live feed. Needs a JSON content type, which a cross-site form or text/plain post cannot send
+        without a CORS preflight (this server sends no CORS headers), so another website cannot clear your feed."""
+        if not self.headers.get("Content-Type", "").lower().startswith("application/json"):
+            raise BadRequest(415, "Content-Type must be application/json")
+        events = getattr(self.server, "events", None)
+        cleared = events.clear() if events is not None and self._live_feed() else 0
+        return self._json(200, {"cleared": cleared})
 
     def _events(self) -> list[dict]:
         events = getattr(self.server, "events", None)

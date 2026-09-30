@@ -32,6 +32,13 @@ class EventLog:
             self._events.append(event)
             return event
 
+    def clear(self) -> int:
+        """Drop every stored event and return how many there were. Ids keep counting up."""
+        with self._lock:
+            count = len(self._events)
+            self._events.clear()
+            return count
+
     def snapshot(self) -> list[dict]:
         """The stored events, newest first."""
         with self._lock:
