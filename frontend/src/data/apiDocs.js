@@ -17,7 +17,7 @@ const PAYLOAD = {
 export const ENDPOINTS = [
   {
     id: "scan", method: "POST", path: "/scan",
-    summary: "Score one string, or several named fields, and get the findings, the decoded text and the ML probability.",
+    summary: "Score one string, or several named fields, and get the findings, the decoded text and the ML probability. The built-in server also takes an optional \"source\" (1-40 lowercase letters, digits or hyphens); scans that name one appear on the Live feed page.",
     requestExample: { text: "<img src=x onerror=alert(1)>" },
     responseExample: {
       score: 95, level: "critical", is_malicious: true, decode_layers: 0,
@@ -90,15 +90,26 @@ export const ENDPOINTS = [
     },
   },
   {
+    id: "events", method: "GET", path: "/events", builtinOnly: true,
+    summary: "The live feed: the last 100 scans that named a source, newest first. Empty, with enabled false, when the feed is off (LIVE_FEED=0, or the default on a non-local host).",
+    responseExample: {
+      events: [{
+        id: 12, ts: "2026-09-30T04:10:53.123+00:00", source: "dummy-site", field: "comment", blocked: true, score: 95,
+        level: "critical", rules: ["XSS002", "XSS033"], text: "<img src=x onerror=alert(1)>",
+      }],
+      enabled: true,
+    },
+  },
+  {
     id: "health", method: "GET", path: "/health",
     summary: "Server status: whether it is up, how many rules are loaded, and whether the ML model is loaded.",
     responseExample: { status: "ok", service: "XSS Detector API", version: "0.1.0", rules: 24, ml_loaded: true },
   },
 ];
 
-// The endpoints to document: all of them, or, for a build whose API is the built-in server, only those it has.
+// The endpoints to document: those of the FastAPI backend, or, for a build whose API is the built-in server, only those it has.
 export function endpointsFor(backendPages = BACKEND_PAGES) {
-  return backendPages ? ENDPOINTS : ENDPOINTS.filter((e) => !e.backendOnly);
+  return backendPages ? ENDPOINTS.filter((e) => !e.builtinOnly) : ENDPOINTS.filter((e) => !e.backendOnly);
 }
 
 // A copy-pasteable curl command with the full URL. Single quotes in the body are escaped so the shell keeps it intact.

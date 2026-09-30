@@ -4,6 +4,7 @@ import { ApiDocsPage } from "./pages/ApiDocs.jsx";
 import { BenchmarksPage } from "./pages/Benchmarks.jsx";
 import { HomePage } from "./pages/Home.jsx";
 import { HowItWorksPage } from "./pages/HowItWorks.jsx";
+import { LivePage } from "./pages/Live.jsx";
 import { NotFound } from "./pages/NotFound.jsx";
 import { PayloadsPage } from "./pages/Payloads.jsx";
 import { PlaygroundPage } from "./pages/Playground.jsx";
@@ -20,6 +21,8 @@ export function buildRoutes(backendPages) {
       { path: "/playground", title: "Sanitizer playground", nav: "Sanitizer", component: PlaygroundPage },
       { path: "/payloads", title: "Payloads", nav: "Payloads", component: PayloadsPage },
     ] : []),
+    // /events exists only on the built-in server, so the FastAPI-backed build (backendPages) leaves the page out
+    ...(backendPages ? [] : [{ path: "/live", title: "Live feed", nav: "Live", component: LivePage }]),
     { path: "/how-it-works", title: "How it works", nav: "How it works", component: HowItWorksPage },
     { path: "/rules", title: "Rules", nav: "Rules", component: RulesPage },
     { path: "/benchmarks", title: "Benchmarks", nav: "Benchmarks", component: BenchmarksPage },

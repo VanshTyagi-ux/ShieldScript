@@ -19,6 +19,10 @@ export const PAGES = `
 .chip-button[aria-pressed="true"]:hover:not(:disabled) { background: var(--accent-hover); }
 
 /* rules table: a readable minimum width, so on a phone it scrolls inside its wrapper instead of collapsing */
+.live-table { min-width: 720px; }
+.live-table td { vertical-align: top; }
+.live-text { max-width: 360px; word-break: break-all; }
+.top-rules ul { padding: 0; margin: var(--space-3) 0 0; list-style: none; }
 .rules-table { min-width: 720px; }
 .rules-table th, .rules-table td:first-child code { white-space: nowrap; word-break: normal; }
 .th-sort { min-height: 0; padding: 0; color: inherit; background: transparent; border: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; }

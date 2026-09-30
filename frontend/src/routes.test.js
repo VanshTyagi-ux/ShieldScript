@@ -23,8 +23,14 @@ describe("buildRoutes", () => {
   it("without them: leaves those two pages out entirely, and keeps every other page", () => {
     const routes = buildRoutes(false);
     for (const path of BACKEND_ONLY) expect(paths(routes)).not.toContain(path);
-    expect(paths(routes)).toEqual(["/", "/scanner", "/how-it-works", "/rules", "/benchmarks", "/api-docs", "/about"]);
+    expect(paths(routes)).toEqual(["/", "/scanner", "/live", "/how-it-works", "/rules", "/benchmarks", "/api-docs", "/about"]);
     expect(routes.filter((r) => r.nav).map((r) => r.nav)).not.toContain("Payloads");
+  });
+
+  it("offers the live feed only in builds served by the built-in server, which is what has /events", () => {
+    expect(paths(buildRoutes(false))).toContain("/live");
+    expect(paths(buildRoutes(true))).not.toContain("/live");
+    expect(buildRoutes(false).find((r) => r.path === "/live")).toMatchObject({ title: "Live feed", nav: "Live" });
   });
 
   it("ROUTES is the build's choice, and the default build has the backend pages", () => {

@@ -8,7 +8,7 @@ describe("ENDPOINTS", () => {
   it("documents every endpoint once, with paths relative to the API base", () => {
     expect(ENDPOINTS.map((e) => `${e.method} ${e.path}`)).toEqual([
       "POST /scan", "POST /submit", "POST /sanitize", "GET /payloads?category=bypass&limit=2", "GET /payloads/facets",
-      "GET /payloads/1", "GET /rules", "GET /benchmark", "GET /health",
+      "GET /payloads/1", "GET /rules", "GET /benchmark", "GET /events", "GET /health",
     ]);
     expect(new Set(ENDPOINTS.map((e) => e.id)).size).toBe(ENDPOINTS.length);
     for (const e of ENDPOINTS) expect(e.path, e.id).not.toMatch(/^\/api\b/);
@@ -31,12 +31,25 @@ describe("ENDPOINTS", () => {
 
 describe("endpointsFor", () => {
   it("documents everything when the backend pages are on", () => {
-    expect(endpointsFor(true)).toBe(ENDPOINTS);
+    expect(endpointsFor(true)).toEqual(ENDPOINTS.filter((e) => !e.builtinOnly));
     expect(endpointsFor(true)).toHaveLength(9);
+    expect(endpointsFor(true).map((e) => e.id)).not.toContain("events");
   });
 
   it("documents only what the built-in server has when they are off, in the original order", () => {
-    expect(endpointsFor(false).map((e) => e.id)).toEqual(["scan", "submit", "rules", "benchmark", "health"]);
+    expect(endpointsFor(false).map((e) => e.id)).toEqual(["scan", "submit", "rules", "benchmark", "events", "health"]);
+  });
+
+  it("marks exactly the endpoints only the built-in server has, and documents the live feed's event shape", () => {
+    expect(ENDPOINTS.filter((e) => e.builtinOnly).map((e) => e.id)).toEqual(["events"]);
+    const events = ENDPOINTS.find((e) => e.id === "events");
+    expect(events).toMatchObject({ method: "GET", path: "/events" });
+    expect(Object.keys(events.responseExample)).toEqual(["events", "enabled"]);
+    expect(Object.keys(events.responseExample.events[0])).toEqual(["id", "ts", "source", "field", "blocked", "score", "level", "rules", "text"]);
+  });
+
+  it("says the scan endpoint takes an optional source", () => {
+    expect(ENDPOINTS.find((e) => e.id === "scan").summary).toMatch(/source/);
   });
 
   it("marks exactly the endpoints only the FastAPI backend has", () => {
