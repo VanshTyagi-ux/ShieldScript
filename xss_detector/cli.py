@@ -56,7 +56,7 @@ def cmd_serve(args) -> int:
 
 def cmd_demo(args) -> int:
     from .demo import serve
-    serve(args.host, args.port)
+    serve(args.host, args.port, args.detector_url)
     return 0
 
 
@@ -89,9 +89,11 @@ def main(argv=None) -> int:
     serve.add_argument("--port", type=int, default=None, help="port (env PORT, default 8000)")
     serve.set_defaults(func=cmd_serve)
 
-    demo = sub.add_parser("demo", help="vulnerable vs protected comment board (stored-XSS demo)")
+    demo = sub.add_parser("demo", help="vulnerable vs protected dummy blog (stored and reflected XSS demo)")
     demo.add_argument("--host", default="127.0.0.1")
     demo.add_argument("--port", type=int, default=8001)
+    demo.add_argument("--detector-url", default=None,
+                      help="the main site the protected pages scan through (env DETECTOR_URL, default http://127.0.0.1:8000)")
     demo.set_defaults(func=cmd_demo)
 
     train = sub.add_parser("train", help="train the ML detector on data/payloads (writes xss_detector/model.json)")

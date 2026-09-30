@@ -1,21 +1,26 @@
-"""Vulnerable vs protected comment board - a local, educational stored-XSS demo.
+"""Vulnerable vs protected dummy blog - a local, educational XSS demo (stored and reflected).
 
-  /vulnerable  renders comments as raw HTML (deliberately insecure; do NOT copy this)
-  /protected   scans input with the detector AND HTML-escapes on output
+  /vulnerable  renders comments and the search query as raw HTML (deliberately insecure; do NOT copy this)
+  /protected   sends input to the main site's detector (POST /api/scan) AND HTML-escapes on output
 
-The attack payload only reveals a fake demo cookie in a banner. The server binds to
-127.0.0.1 and keeps comments in memory only.
+The protected pages are a client of the main site, like any other application: they do not import the detector.
+If the main site cannot be reached they reject the input (fail closed) rather than let it through unscanned.
+The attack payload only reveals a fake demo cookie in a banner. The server binds to 127.0.0.1 and keeps
+comments in memory only.
 """
 
 from __future__ import annotations
 
+import http.client
+import json
 import logging
+import os
 import threading
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 
-from .ml import HybridDetector
 from .sanitizer import escape_html
 
 log = logging.getLogger("xss_detector.demo")
@@ -23,6 +28,49 @@ STATIC = Path(__file__).parent / "static"
 MAX_BODY = 32 * 1024
 MAX_FIELD = 2000
 MAX_COMMENTS = 50
+DEFAULT_DETECTOR_URL = "http://127.0.0.1:8000"
+SOURCE = "dummy-site"  # how the main site labels scans from here on its /live page
+UNAVAILABLE = "Detector unavailable, input not accepted"
+
+
+class DetectorUnavailable(Exception):
+    """The main site could not give a usable verdict; protected pages must reject the input."""
+
+
+def scan_via_api(base_url: str, fields: dict[str, str], *, source: str = SOURCE, timeout: float = 3.0) -> dict[str, dict]:
+    """Scan `fields` with the main site (one POST /api/scan); -> {field: result}. Raises DetectorUnavailable on
+    a connection error, timeout, any non-200 answer (a 429 included), invalid JSON, or a missing verdict."""
+    request = urllib.request.Request(
+        f"{base_url.rstrip('/')}/api/scan", data=json.dumps({"fields": fields, "source": source}).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            if response.status != 200:
+                raise DetectorUnavailable(f"detector answered HTTP {response.status}")
+            results = json.loads(response.read())["results"]
+    except DetectorUnavailable:
+        raise
+    except (OSError, ValueError, KeyError, TypeError, http.client.HTTPException) as exc:
+        raise DetectorUnavailable(str(exc) or type(exc).__name__) from None
+    for name in fields:
+        result = results.get(name) if isinstance(results, dict) else None
+        if not isinstance(result, dict) or not isinstance(result.get("is_malicious"), bool):
+            raise DetectorUnavailable(f"detector gave no verdict for {name!r}")
+    return results
+
+
+def detector_status(base_url: str, timeout: float = 1.0) -> bool:
+    """Whether the main site answers its health check."""
+    try:
+        with urllib.request.urlopen(f"{base_url.rstrip('/')}/api/health", timeout=timeout) as response:
+            return response.status == 200
+    except (OSError, http.client.HTTPException):
+        return False
+
+
+def _blocked(field: str, result: dict) -> dict:
+    return {"field": field, "level": result.get("level", "unknown"), "score": result.get("score", 0),
+            "ml_probability": result.get("ml_probability"), "findings": result.get("findings") or []}
 
 SAMPLES = {
     "Harmless comment": "Great post, thanks for sharing!",
@@ -45,7 +93,6 @@ MODES = {
     },
 }
 
-detector = HybridDetector()
 _lock = threading.Lock()
 _comments: dict[str, list[tuple[str, str]]] = {
     mode: [("Ada", "Welcome to the comment board!")] for mode in MODES
@@ -61,7 +108,9 @@ CSS = ("body{font:15px/1.5 system-ui,sans-serif;max-width:720px;margin:24px auto
        ".tag.p{background:#1f7a44}")
 
 
-def render_page(mode: str, values: dict | None = None, blocked: dict | None = None) -> str:
+def render_page(mode: str, values: dict | None = None, blocked: dict | None = None,
+                query: str | None = None, unavailable: bool = False) -> str:
+    """`query` is the search text to echo (raw on the vulnerable board, escaped on the protected one)."""
     info = MODES[mode]
     values = values or {}
     with _lock:
@@ -77,12 +126,23 @@ def render_page(mode: str, values: dict | None = None, blocked: dict | None = No
         for label, payload in SAMPLES.items())
 
     alert = ""
+    if unavailable:
+        alert = (f'<div class="card bad"><b>{UNAVAILABLE}.</b> The protected board asks the main site to scan every '
+                 f'input and will not accept anything it cannot scan. Start it with '
+                 f'<code>python -m xss_detector serve</code>.</div>')
     if blocked:
-        rows = "".join(f"<li><code>{escape_html(f['rule_id'])}</code> {escape_html(f['name'])} "
-                       f"<span class='muted'>({escape_html(f['match'])})</span></li>" for f in blocked["findings"])
+        rows = "".join(f"<li><code>{escape_html(f.get('rule_id', ''))}</code> {escape_html(f.get('name', ''))} "
+                       f"<span class='muted'>({escape_html(f.get('match', ''))})</span></li>"
+                       for f in blocked["findings"])
         alert = (f'<div class="card bad"><b>Rejected:</b> field "{escape_html(blocked["field"])}" looks like XSS '
                  f'({escape_html(blocked["level"])}, score {blocked["score"]}, '
                  f'ML {escape_html(str(blocked["ml_probability"]))}).<ul>{rows}</ul></div>')
+
+    if query:
+        shown = query if mode == "vulnerable" else escape_html(query)  # DELIBERATELY UNSAFE on the vulnerable board
+        result = f'<div class="card">You searched for: <b>{shown}</b><br><span class="muted">No results.</span></div>'
+    else:
+        result = ""
 
     tag = '<span class="tag">insecure</span>' if mode == "vulnerable" else '<span class="tag p">protected</span>'
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -92,6 +152,12 @@ def render_page(mode: str, values: dict | None = None, blocked: dict | None = No
 <h1>{info['title']} {tag}</h1><p>{info['blurb']}</p>
 <div id="pwned" hidden></div>
 {alert}
+<h2>Search</h2>
+<form method="get" action="/{mode}/search">
+<label>Search the blog<input name="q" value="{escape_html(query or '')}" autocomplete="off"></label>
+<button type="submit">Search</button></form>
+{result}
+<h2>Comment</h2>
 <form method="post" action="/{mode}/comment">
 <label>Name<input name="name" value="{escape_html(values.get('name', ''))}" autocomplete="off"></label>
 <label>Comment<textarea name="comment" rows="3">{escape_html(values.get('comment', ''))}</textarea></label>
@@ -103,13 +169,20 @@ def render_page(mode: str, values: dict | None = None, blocked: dict | None = No
 <script src="/demo.js"></script></body></html>"""
 
 
-HOME = """<!doctype html><html lang="en"><head><meta charset="utf-8"><title>XSS demo</title>
-<style>%s</style></head><body><h1>Stored XSS demo</h1>
-<p>Two identical comment boards. Post the same attack to both and compare.</p>
+def render_home(detector_url: str) -> str:
+    up = detector_status(detector_url)
+    status = (f'<span class="ok">Detector reachable</span> at {escape_html(detector_url)}' if up else
+              f'<b>Detector not reachable</b> at {escape_html(detector_url)}: the protected pages will reject input '
+              f'until you start it with <code>python -m xss_detector serve</code>.')
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>XSS demo</title>
+<style>{CSS}</style></head><body><h1>Dummy blog: stored and reflected XSS</h1>
+<p>Two identical boards, each with a comment form (stored XSS) and a search box (reflected XSS). Send the same
+attack to both and compare.</p>
 <div class="card"><a href="/vulnerable">Vulnerable board</a> - raw HTML output, no filtering.</div>
-<div class="card"><a href="/protected">Protected board</a> - detector + output escaping + CSP.</div>
+<div class="card"><a href="/protected">Protected board</a> - scanned by the main site's detector + output escaping + CSP.</div>
+<div class="card">{status}<br><a href="{escape_html(detector_url)}/live">Watch the live feed</a> on the main site.</div>
 <p class="muted">Local demo only. Comments live in memory and the cookie is a fake value.</p>
-</body></html>""" % CSS
+</body></html>"""
 
 DEMO_JS = """document.querySelectorAll('[data-payload]').forEach(function (b) {
   b.addEventListener('click', function () {
@@ -122,6 +195,10 @@ DEMO_JS = """document.querySelectorAll('[data-payload]').forEach(function (b) {
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "XSSDemo/1.0"
+
+    @property
+    def detector_url(self) -> str:
+        return getattr(self.server, "detector_url", DEFAULT_DETECTOR_URL)
 
     def _send(self, status, body, ctype="text/html; charset=utf-8", headers=None):
         data = body.encode()
@@ -144,13 +221,18 @@ class Handler(BaseHTTPRequestHandler):
         self._send(status, render_page(mode, **kw), headers=headers)
 
     def do_GET(self):
-        path = self.path.split("?", 1)[0]
+        parts = urlsplit(self.path)
+        path = parts.path
         if path == "/":
-            return self._send(200, HOME)
+            return self._send(200, render_home(self.detector_url))
         if path == "/demo.js":
             return self._send(200, DEMO_JS, "text/javascript; charset=utf-8")
         if path.strip("/") in MODES:
             return self._page(path.strip("/"))
+        segments = path.strip("/").split("/")
+        if len(segments) == 2 and segments[0] in MODES and segments[1] == "search":
+            query = parse_qs(parts.query).get("q", [""])[0][:MAX_FIELD]
+            return self._search(segments[0], query)
         self._send(404, "Not found", "text/plain")
 
     def do_POST(self):
@@ -174,15 +256,34 @@ class Handler(BaseHTTPRequestHandler):
             return self._comment(parts[0], form.get("name", "").strip() or "Anonymous", form.get("comment", ""))
         self._send(404, "Not found", "text/plain")
 
+    def _scan(self, fields: dict[str, str]):
+        """-> (results, None), or (None, reason) when the main site cannot give a verdict."""
+        try:
+            return scan_via_api(self.detector_url, fields), None
+        except DetectorUnavailable as exc:
+            log.warning("demo: detector unavailable, rejecting input: %s", exc)
+            return None, str(exc)
+
+    def _search(self, mode, query):
+        if mode == "protected" and query:
+            results, problem = self._scan({"q": query})
+            if problem:
+                return self._page(mode, 503, unavailable=True)
+            if results["q"]["is_malicious"]:
+                log.warning("demo: blocked field='q' score=%s", results["q"].get("score"))
+                return self._page(mode, 422, blocked=_blocked("q", results["q"]))
+        self._page(mode, query=query)
+
     def _comment(self, mode, name, text):
         if mode == "protected":
-            for field, value in (("name", name), ("comment", text)):
-                result = detector.scan(value)
-                if result["is_malicious"]:
-                    log.warning("demo: blocked field=%r score=%d", field, result["score"])
-                    blocked = {"field": field, "level": result["level"], "score": result["score"],
-                               "ml_probability": result["ml_probability"], "findings": result["findings"]}
-                    return self._page(mode, 422, values={"name": name, "comment": text}, blocked=blocked)
+            results, problem = self._scan({"name": name, "comment": text})
+            if problem:
+                return self._page(mode, 503, values={"name": name, "comment": text}, unavailable=True)
+            for field in ("name", "comment"):
+                if results[field]["is_malicious"]:
+                    log.warning("demo: blocked field=%r score=%s", field, results[field].get("score"))
+                    return self._page(mode, 422, values={"name": name, "comment": text},
+                                      blocked=_blocked(field, results[field]))
         with _lock:
             _comments[mode].append((name, text))
             del _comments[mode][:-MAX_COMMENTS]
@@ -198,10 +299,12 @@ class Handler(BaseHTTPRequestHandler):
         log.info("%s - %s", self.address_string(), fmt % args)
 
 
-def serve(host: str = "127.0.0.1", port: int = 8001) -> None:
+def serve(host: str = "127.0.0.1", port: int = 8001, detector_url: str | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     httpd = ThreadingHTTPServer((host, port), Handler)
+    httpd.detector_url = (detector_url or os.environ.get("DETECTOR_URL") or DEFAULT_DETECTOR_URL).rstrip("/")
     log.info("XSS demo on http://%s:%d  (vulnerable + protected boards; Ctrl+C to stop)", host, port)
+    log.info("Protected pages scan through %s (start it with: python -m xss_detector serve)", httpd.detector_url)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
