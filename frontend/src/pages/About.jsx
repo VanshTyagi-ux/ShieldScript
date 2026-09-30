@@ -22,8 +22,8 @@ export function AboutPage() {
           <h2>Limitations</h2>
           <ul>
             <li>Detection is heuristic. Always HTML-encode output and use a Content Security Policy; treat this as an extra layer.</li>
-            <li>Text that merely discusses XSS, such as a security blog comment, will be flagged.</li>
-            <li>Rare prose like <code>onset = 3</code> can score medium through the generic event-handler rule.</li>
+            <li>Text that merely discusses XSS, such as a security blog comment, will be flagged. This is deliberate: real markup in prose cannot be told apart from an attack hidden in a sentence.</li>
+            <li>An unrecognised <code>on…=</code> handler is only caught inside a tag, so a bare <code>" onfoo=1</code> with an obscure name and no <code>&lt;</code> is not flagged by that rule.</li>
             <li>It only sees what is sent to it, so DOM-based XSS that never reaches the server is out of reach.</li>
           </ul>
           <aside className="callout">

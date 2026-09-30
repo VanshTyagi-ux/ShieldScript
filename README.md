@@ -75,14 +75,14 @@ The web server uses a **hybrid**: the rules decide, and the ML model can only *e
 
 ## Benchmark
 
-`python -m xss_detector evaluate` scores every detector on a held-out 30% split of a **25,006-sample corpus** (8,560 malicious + 16,397 benign + 49 hard negatives): **2,640 public XSS payloads** ([SecLists](https://github.com/danielmiessler/SecLists) lists in `data/payloads/`, MIT licence), **4,948 benign inputs** (Python-docs text plus synthetic form input) and **49 hand-written hard negatives** that are never used for training.
+`python -m xss_detector evaluate` scores every detector on a held-out 30% split of a **25,007-sample corpus** (8,560 malicious + 16,397 benign + 50 hard negatives): **2,640 public XSS payloads** ([SecLists](https://github.com/danielmiessler/SecLists) lists in `data/payloads/`, MIT licence), **4,948 benign inputs** (Python-docs text plus synthetic form input) and **50 hand-written hard negatives** that are never used for training.
 
 | Detector | Recall | Precision | False-positive rate | Hard-negative FPs |
 |---|---|---|---|---|
-| Rules | 94.2% | 100% | 0.00% | 1/49 |
-| ML alone | 99.9% | 99.8% | 0.10% | 2/49 |
-| Naive hybrid (rules OR ML) | 99.9% | 99.8% | 0.10% | 3/49 |
-| **Hybrid (rules; ML escalates)** - used by the server | 95.2% | 100% | 0.00% | 1/49 |
+| Rules | 94.2% | 100% | 0.00% | 0/50 |
+| ML alone | 99.9% | 99.8% | 0.10% | 2/50 |
+| Naive hybrid (rules OR ML) | 99.9% | 99.8% | 0.10% | 2/50 |
+| **Hybrid (rules; ML escalates)** - used by the server | 95.1% | 100% | 0.00% | 0/50 |
 
 Caveats, all repeated in `reports/benchmark.md`: many public payload "lines" are fragments (`href=`, `top.`) that no rule engine should flag; near-duplicate payloads make the random split optimistic, so the report also retrains the model with each payload list held out (ML recall on unseen lists: 99.3% weighted, but only 78.9% on `XSS-EnDe-evation.txt`); and the benign training text is mostly prose, so the ML false-positive rate is optimistic for real rich-text input.
 
@@ -200,8 +200,8 @@ CI (`.github/workflows/ci.yml`) runs both test suites, `npm audit`, rebuilds the
 ## Limitations
 
 - Detection is heuristic. **Always HTML-encode output** (`escape_html`) and use a CSP; treat this as an additional layer, not a replacement.
-- Text that merely *discusses* XSS (e.g. a security blog comment) will be flagged.
-- Rare `on<word>=` prose such as `onset = 3` scores "medium" via the generic event-handler rule.
+- Text that merely *discusses* XSS (e.g. a security blog comment) will be flagged. This is deliberate: real markup such as `<script>` or `onclick=` in prose cannot be told apart from an attack that hides in a sentence, so no "looks like prose" discount is applied.
+- The generic event-handler rule (`on<word>=` with an unrecognised name) only fires inside an opening tag, so prose such as `onset = 3` is safe. The cost is that a bare `" onfoo=1` with an obscure handler name and no `<` is not caught by that rule.
 - Only what is sent to it is scanned; it does not see DOM-based XSS that never reaches the server.
 
 ## Layout

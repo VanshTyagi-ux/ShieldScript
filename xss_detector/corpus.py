@@ -33,7 +33,7 @@ HARD_BENIGN = [
     "Meeting at 3pm - bring the docs (and coffee)", "email: first.last+tag@example.co.uk",
     "https://example.com/search?q=cats&page=2#results", "www.example.com/path/to/page.html",
     "Café résumé naïve 日本語 Привет мир", "🙂 great product, 5/5 would buy again",
-    "The document was written in 2019 and revised in 2021", "onset = 3 days after symptoms",
+    "The document was written in 2019 and revised in 2021", "onset = 3 days after symptoms", "The onset = 3 days; once = 2, one = 1",
     "Call me on +1 (555) 010-9999 after 5", "Dear Sir/Madam, I am writing to complain...",
     "1 + 1 = 2; 2 * 3 = 6", "{name: 'Ada', age: 36}", "def add(a, b): return a + b",
     "The location of the store is on Main Street", "fetch the report from the server tomorrow",

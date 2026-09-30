@@ -1,27 +1,28 @@
 {
-  "generated": "2026-09-29",
+  "generated": "2026-09-30",
   "dataset": {
     "malicious_test": 2640,
     "benign_test": 4948,
-    "hard_negatives": 49
+    "hard_negatives": 50
   },
   "detectors": [
     {
       "name": "Rules",
       "shipped": false,
-      "recall": 0.9424242424242424,
+      "recall": 0.9420454545454545,
       "precision": 1.0,
-      "f1": 0.9703588143525741,
+      "f1": 0.9701579871269749,
       "fpr": 0.0,
-      "accuracy": 0.9799683711122825,
-      "tp": 2488,
-      "fn": 152,
+      "accuracy": 0.9798365840801265,
+      "tp": 2487,
+      "fn": 153,
       "fp": 0,
       "tn": 4948,
-      "hard_fps": 1,
-      "hard_total": 49,
+      "hard_fps": 0,
+      "hard_total": 50,
       "samples": {
         "misses": [
+          "<x 1=\">\" onxxx=1",
           "<br><br><br><br><br><br><br><br><br><br>",
           "<br><br><br><br><br><br><x id=x>#x",
           "a=alert,a(1)",
@@ -32,13 +33,10 @@
           "%u22%u27%u3e%u3cscript%u3econfirm(42)%u3c/script%u3e",
           "jAvas\\Cript:confirm(42)",
           "document.",
-          "top.",
-          "top["
+          "top."
         ],
         "false_positives": [],
-        "hard_false_positives": [
-          "onset = 3 days after symptoms"
-        ]
+        "hard_false_positives": []
       }
     },
     {
@@ -54,7 +52,7 @@
       "fp": 5,
       "tn": 4943,
       "hard_fps": 2,
-      "hard_total": 49,
+      "hard_total": 50,
       "samples": {
         "misses": [
           "navigator.vibrate(500)",
@@ -86,8 +84,8 @@
       "fn": 3,
       "fp": 5,
       "tn": 4943,
-      "hard_fps": 3,
-      "hard_total": 49,
+      "hard_fps": 2,
+      "hard_total": 50,
       "samples": {
         "misses": [
           "navigator.vibrate(500)",
@@ -103,7 +101,6 @@
         ],
         "hard_false_positives": [
           "C:\\users\\public\\documents",
-          "onset = 3 days after symptoms",
           "<3 <3 <3"
         ]
       }
@@ -111,19 +108,20 @@
     {
       "name": "Hybrid (rules; ML escalates)",
       "shipped": true,
-      "recall": 0.9515151515151515,
+      "recall": 0.9511363636363637,
       "precision": 1.0,
-      "f1": 0.9751552795031055,
+      "f1": 0.974956319161328,
       "fpr": 0.0,
-      "accuracy": 0.9831312598840274,
-      "tp": 2512,
-      "fn": 128,
+      "accuracy": 0.9829994728518714,
+      "tp": 2511,
+      "fn": 129,
       "fp": 0,
       "tn": 4948,
-      "hard_fps": 1,
-      "hard_total": 49,
+      "hard_fps": 0,
+      "hard_total": 50,
       "samples": {
         "misses": [
+          "<x 1=\">\" onxxx=1",
           "<br><br><br><br><br><br><br><br><br><br>",
           "<br><br><br><br><br><br><x id=x>#x",
           "top['al\\145rt'](1)",
@@ -134,13 +132,10 @@
           "top.",
           "top[",
           "eval(",
-          "onload",
-          "\"onerror"
+          "onload"
         ],
         "false_positives": [],
-        "hard_false_positives": [
-          "onset = 3 days after symptoms"
-        ]
+        "hard_false_positives": []
       }
     }
   ],
@@ -148,7 +143,7 @@
     {
       "source": "XSS-BruteLogic.txt",
       "payloads": 113,
-      "rules_recall": 0.9469026548672567,
+      "rules_recall": 0.9292035398230089,
       "ml_recall": 1.0,
       "ml_fpr": 0.0014147130153597412
     },
@@ -204,7 +199,7 @@
   ],
   "unseen_weighted": {
     "payloads": 8425,
-    "rules_recall": 0.949673590504451,
+    "rules_recall": 0.9494362017804154,
     "ml_recall": 0.9932344213649852
   },
   "notes": [
