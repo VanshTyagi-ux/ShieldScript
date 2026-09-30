@@ -101,6 +101,12 @@ export const ENDPOINTS = [
     },
   },
   {
+    id: "events-clear", method: "POST", path: "/events/clear", builtinOnly: true,
+    summary: "Empty the live feed and get how many events were dropped. Needs a JSON request (Content-Type: application/json); event ids keep counting up. Does nothing, and returns 0, when the feed is off.",
+    requestExample: {},
+    responseExample: { cleared: 12 },
+  },
+  {
     id: "health", method: "GET", path: "/health",
     summary: "Server status: whether it is up, how many rules are loaded, and whether the ML model is loaded.",
     responseExample: { status: "ok", service: "XSS Detector API", version: "0.1.0", rules: 24, ml_loaded: true },

@@ -103,7 +103,7 @@ python -m xss_detector demo      # the dummy site, http://127.0.0.1:8001
 ```
 
 Open `http://127.0.0.1:8000/live` while you use the dummy site: each scan appears there within about 2 seconds, with
-the verdict, score, the rules that fired and the input.
+the verdict, score, the rules that fired and the input. **Clear feed** empties it (`POST /api/events/clear`).
 
 - **Fails closed.** If the main site cannot be reached (down, slow, rate-limited, or an unusable answer) the protected
   pages reject the input with "Detector unavailable, input not accepted" (HTTP 503). They never let input through
@@ -147,6 +147,7 @@ Charts are hand-drawn SVG (no charting library); every chart has tooltips on hov
 | `POST /api/submit` | `{"fields": {"name","email","website","comment"}}` | `200` + HTML-escaped values, or `422` + per-field errors |
 | `GET /api/rules` | - | the rule catalog (id, name, category, weight, description), the level bands and the block threshold |
 | `GET /api/events` | - | the live feed: `{"events": [...], "enabled": bool}`, newest first, at most 100; empty and `enabled: false` when the feed is off |
+| `POST /api/events/clear` | `{}` (must be sent as `application/json`) | empties the live feed and returns `{"cleared": n}`; event ids keep counting up; does nothing when the feed is off |
 | `GET /api/benchmark` | - | the latest benchmark as JSON (`reports/benchmark.json`); `404` with instructions if not generated |
 | `GET /api/health` | - | `{"status", "rules", "ml_loaded", "bundle"}`; `503` (`"status": "degraded"`) if the frontend bundle is missing |
 

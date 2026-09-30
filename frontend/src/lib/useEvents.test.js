@@ -1,8 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
-import { get } from "../api.js";
+import { get, post } from "../api.js";
 import { useEvents } from "./useEvents.js";
 
-vi.mock("../api.js", () => ({ get: vi.fn() }));
+vi.mock("../api.js", () => ({ get: vi.fn(), post: vi.fn() }));
 
 const EVENT = { id: 1, ts: "2026-09-30T04:10:53.000+00:00", source: "dummy-site", field: "comment", blocked: true, score: 95, level: "critical", rules: ["XSS002"], text: "x" };
 const reply = (over = {}) => ({ ok: true, status: 200, data: { events: [EVENT], enabled: true, ...over } });
@@ -12,7 +12,7 @@ const setHidden = (hidden) => {
   act(() => { document.dispatchEvent(new Event("visibilitychange")); });
 };
 
-beforeEach(() => { vi.useFakeTimers(); get.mockReset(); get.mockResolvedValue(reply()); });
+beforeEach(() => { vi.useFakeTimers(); get.mockReset(); post.mockReset(); get.mockResolvedValue(reply()); });
 afterEach(() => { vi.useRealTimers(); setHidden(false); });
 
 describe("useEvents", () => {
@@ -69,6 +69,44 @@ describe("useEvents", () => {
     get.mockResolvedValue(reply());
     await tick(2000);
     expect(result.current).toMatchObject({ status: "ok", error: null });
+  });
+
+  it("clear posts to /events/clear and empties the events at once", async () => {
+    post.mockResolvedValue({ ok: true, status: 200, data: { cleared: 1 } });
+    const { result } = renderHook(() => useEvents());
+    await tick(0);
+    expect(result.current.events).toHaveLength(1);
+    await act(async () => { await result.current.clear(); });
+    expect(post).toHaveBeenCalledWith("/events/clear", {});
+    expect(result.current).toMatchObject({ status: "ok", events: [], error: null });
+  });
+
+  it("a failed clear keeps the events and reports the error", async () => {
+    const { result } = renderHook(() => useEvents());
+    await tick(0);
+    post.mockRejectedValue(new Error("network down"));
+    await act(async () => { await result.current.clear(); });
+    expect(result.current).toMatchObject({ status: "error", events: [EVENT], error: "network down" });
+    post.mockResolvedValue({ ok: false, status: 415, data: { error: "Content-Type must be application/json" } });
+    await act(async () => { await result.current.clear(); });
+    expect(result.current).toMatchObject({ status: "error", events: [EVENT], error: "Content-Type must be application/json" });
+  });
+
+  it("a poll already in flight when the feed was cleared does not bring the old events back", async () => {
+    const { result } = renderHook(() => useEvents());
+    await tick(0);
+    let finish;
+    get.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    await tick(2000); // the second poll starts and stays pending
+    post.mockResolvedValue({ ok: true, status: 200, data: { cleared: 1 } });
+    await act(async () => { await result.current.clear(); });
+    expect(result.current.events).toEqual([]);
+    await act(async () => { finish(reply()); }); // the stale answer arrives after the clear
+    expect(result.current.events).toEqual([]);
+    get.mockResolvedValue(reply({ events: [] }));
+    const before = get.mock.calls.length;
+    await tick(2000); // and polling carries on
+    expect(get.mock.calls.length).toBeGreaterThan(before);
   });
 
   it("treats a 404 (a server without /events) as an error", async () => {

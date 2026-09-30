@@ -8,7 +8,7 @@ describe("ENDPOINTS", () => {
   it("documents every endpoint once, with paths relative to the API base", () => {
     expect(ENDPOINTS.map((e) => `${e.method} ${e.path}`)).toEqual([
       "POST /scan", "POST /submit", "POST /sanitize", "GET /payloads?category=bypass&limit=2", "GET /payloads/facets",
-      "GET /payloads/1", "GET /rules", "GET /benchmark", "GET /events", "GET /health",
+      "GET /payloads/1", "GET /rules", "GET /benchmark", "GET /events", "POST /events/clear", "GET /health",
     ]);
     expect(new Set(ENDPOINTS.map((e) => e.id)).size).toBe(ENDPOINTS.length);
     for (const e of ENDPOINTS) expect(e.path, e.id).not.toMatch(/^\/api\b/);
@@ -37,11 +37,13 @@ describe("endpointsFor", () => {
   });
 
   it("documents only what the built-in server has when they are off, in the original order", () => {
-    expect(endpointsFor(false).map((e) => e.id)).toEqual(["scan", "submit", "rules", "benchmark", "events", "health"]);
+    expect(endpointsFor(false).map((e) => e.id)).toEqual(["scan", "submit", "rules", "benchmark", "events", "events-clear", "health"]);
   });
 
   it("marks exactly the endpoints only the built-in server has, and documents the live feed's event shape", () => {
-    expect(ENDPOINTS.filter((e) => e.builtinOnly).map((e) => e.id)).toEqual(["events"]);
+    expect(ENDPOINTS.filter((e) => e.builtinOnly).map((e) => e.id)).toEqual(["events", "events-clear"]);
+    expect(ENDPOINTS.find((e) => e.id === "events-clear")).toMatchObject({ method: "POST", path: "/events/clear" });
+    expect(Object.keys(ENDPOINTS.find((e) => e.id === "events-clear").responseExample)).toEqual(["cleared"]);
     const events = ENDPOINTS.find((e) => e.id === "events");
     expect(events).toMatchObject({ method: "GET", path: "/events" });
     expect(Object.keys(events.responseExample)).toEqual(["events", "enabled"]);

@@ -30,7 +30,7 @@ function Empty({ loading }) {
 }
 
 export function LivePage() {
-  const { status, events, enabled, error } = useEvents();
+  const { status, events, enabled, error, clear } = useEvents();
   const { scanned, blocked, allowed, topRules } = summarize(events);
   return (
     <div className="page">
@@ -54,6 +54,9 @@ export function LivePage() {
               </div>
             ))}
           </div>
+          <p>
+            <button type="button" className="ghost" disabled={events.length === 0} onClick={clear}>Clear feed</button>
+          </p>
           {topRules.length ? (
             <section className="card top-rules">
               <h2>Most triggered rules</h2>

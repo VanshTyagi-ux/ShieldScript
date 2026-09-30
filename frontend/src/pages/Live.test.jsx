@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useEvents } from "../lib/useEvents.js";
 import { LivePage } from "./Live.jsx";
 
@@ -8,10 +8,11 @@ const ev = (over = {}) => ({
   id: 1, ts: "2026-09-30T04:10:53.123+00:00", source: "dummy-site", field: "comment", blocked: true, score: 95,
   level: "critical", rules: ["XSS002", "XSS033"], text: "<img src=x onerror=alert(1)>", ...over,
 });
-const respond = (over = {}) => useEvents.mockReturnValue({ status: "ok", events: [], enabled: true, error: null, ...over });
+const clear = vi.fn();
+const respond = (over = {}) => useEvents.mockReturnValue({ status: "ok", events: [], enabled: true, error: null, clear, ...over });
 const rows = () => [...document.querySelectorAll(".live-table tbody tr")];
 
-beforeEach(() => { useEvents.mockReset(); respond(); });
+beforeEach(() => { useEvents.mockReset(); clear.mockReset(); respond(); });
 
 describe("LivePage", () => {
   it("has a single h1", () => {
@@ -72,6 +73,24 @@ describe("LivePage", () => {
     render(<LivePage />);
     expect(screen.getByRole("alert").textContent).toMatch(/Can't reach the server/);
     expect(rows()).toHaveLength(1);
+  });
+
+  it("has a Clear feed button that clears the feed", () => {
+    respond({ events: [ev()] });
+    render(<LivePage />);
+    fireEvent.click(screen.getByRole("button", { name: "Clear feed" }));
+    expect(clear).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables Clear feed when there is nothing to clear", () => {
+    render(<LivePage />);
+    expect(screen.getByRole("button", { name: "Clear feed" }).disabled).toBe(true);
+  });
+
+  it("does not offer Clear feed when the feed is off", () => {
+    respond({ enabled: false });
+    render(<LivePage />);
+    expect(screen.queryByRole("button", { name: "Clear feed" })).toBeNull();
   });
 
   it("puts the table in a keyboard-focusable, labelled scroll region", () => {
