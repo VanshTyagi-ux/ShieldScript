@@ -6,22 +6,12 @@ import { PageHeading } from "../layout/PageHeading.jsx";
 import { CATEGORY_SLOTS, categoryLabel, categorySlot } from "../lib/categories.js";
 import { useApi } from "../lib/useApi.js";
 
-const COLUMNS = [
-  { key: "id", label: "ID" },
-  { key: "name", label: "Name" },
-  { key: "category", label: "Category" },
-  { key: "weight", label: "Weight" },
-  { key: "description", label: "What it looks for", sortable: false },
-];
-
 const compareText = (a, b) => a.localeCompare(b, "en", { sensitivity: "base" });
 const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
-function sortRules(rules, { key, dir }) {
-  const sign = dir === "asc" ? 1 : -1;
-  const primary = key === "weight" ? (a, b) => a.weight - b.weight : (a, b) => compareText(String(a[key]), String(b[key]));
-  return [...rules].sort((a, b) => sign * primary(a, b) || compareText(a.id, b.id));
-}
+// Heaviest first; ties in id order.
+const byWeight = (a, b) => b.weight - a.weight || compareText(a.id, b.id);
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 // Known categories first, in their fixed colour order, then any unknown ones alphabetically.
 function categoriesOf(rules) {
@@ -58,7 +48,7 @@ function Loading() {
 function RulesCharts({ rules, levels, threshold }) {
   const categories = categoriesOf(rules);
   const legend = categories.map((c) => ({ key: c, label: categoryLabel(c), slot: categorySlot(c) }));
-  const byWeight = [...rules].sort((a, b) => b.weight - a.weight || compareText(a.id, b.id));
+  const heaviest = [...rules].sort(byWeight);
   const perCategory = (measure) => categories.map((c) => ({
     key: c, label: categoryLabel(c), slot: categorySlot(c),
     value: rules.filter((r) => r.category === c).reduce((sum, r) => sum + measure(r), 0),
@@ -73,10 +63,10 @@ function RulesCharts({ rules, levels, threshold }) {
         title="Score weight by rule"
         description="How many points each rule adds when it fires. Colour shows the rule's category."
         legend={legend}
-        table={{ columns: ["Rule", "Category", "Weight"], rows: byWeight.map((r) => [`${r.id} ${r.name}`, categoryLabel(r.category), r.weight]) }}
+        table={{ columns: ["Rule", "Category", "Weight"], rows: heaviest.map((r) => [`${r.id} ${r.name}`, categoryLabel(r.category), r.weight]) }}
       >
         <BarChart
-          data={byWeight.map((r) => ({ key: r.id, label: `${r.id} ${r.name}`, value: r.weight, slot: categorySlot(r.category) }))}
+          data={heaviest.map((r) => ({ key: r.id, label: `${r.id} ${r.name}`, value: r.weight, slot: categorySlot(r.category) }))}
           valueLabel="Points"
           ariaLabel="Score weight by rule"
         />
@@ -111,55 +101,33 @@ function RulesCharts({ rules, levels, threshold }) {
   );
 }
 
-function RulesTable({ rules }) {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState(null);
-  const [sort, setSort] = useState({ key: "weight", dir: "desc" });
-  const categories = useMemo(() => categoriesOf(rules), [rules]);
-  const maxWeight = Math.max(1, ...rules.map((r) => r.weight));
-
-  const needle = query.trim().toLowerCase();
-  const shown = sortRules(
-    rules.filter((r) => (!category || r.category === category)
-      && (!needle || [r.id, r.name, r.description, r.category, categoryLabel(r.category)].some((field) => field.toLowerCase().includes(needle)))),
-    sort,
-  );
-
-  const chooseSort = (key) => setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "weight" ? "desc" : "asc" }));
-
+function RuleGroup({ category, rules, maxWeight, open, onToggle }) {
+  const bodyId = `rules-group-${category}`;
+  const points = rules.reduce((sum, r) => sum + r.weight, 0);
   return (
-    <>
-      <div className="controls">
-        <label htmlFor="rule-search" className="sr-only">Search rules</label>
-        <input id="rule-search" type="search" placeholder="Search rules" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <div className="chip-row">
-          <button type="button" className="chip-button" aria-pressed={category === null} onClick={() => setCategory(null)}>All</button>
-          {categories.map((c) => (
-            <button key={c} type="button" className="chip-button" aria-pressed={category === c} onClick={() => setCategory(c)}>{categoryLabel(c)}</button>
-          ))}
-        </div>
-      </div>
-      <p className="muted" aria-live="polite">{`Showing ${shown.length} of ${rules.length} rules`}</p>
-      {shown.length === 0 ? (
-        <p className="empty">No rules match your search.</p>
-      ) : (
-        <div className="table-wrap">
+    <section className="card rules-group">
+      <h3>
+        <button type="button" className="group-toggle" aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
+          <span className="cat"><i className={`cat-dot bg-s${categorySlot(category) || 0}`} aria-hidden="true" />{categoryLabel(category)}</span>
+          <span className="muted">{` · ${plural(rules.length, "rule")} · ${plural(points, "point")}`}</span>
+        </button>
+      </h3>
+      {open ? (
+        <div className="table-wrap" id={bodyId}>
           <table className="rules-table">
             <thead>
               <tr>
-                {COLUMNS.map((col) => (
-                  <th key={col.key} scope="col" aria-sort={col.sortable === false ? undefined : sort.key === col.key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-                    {col.sortable === false ? col.label : <button type="button" className="th-sort" onClick={() => chooseSort(col.key)}>{col.label}</button>}
-                  </th>
-                ))}
+                <th scope="col">ID</th>
+                <th scope="col">Name</th>
+                <th scope="col">Weight</th>
+                <th scope="col">What it looks for</th>
               </tr>
             </thead>
             <tbody>
-              {shown.map((r) => (
+              {rules.map((r) => (
                 <tr key={r.id}>
                   <td><code>{r.id}</code></td>
                   <td>{r.name}{r.derived ? <span className="chip tag">derived</span> : null}</td>
-                  <td><span className="cat"><i className={`cat-dot bg-s${categorySlot(r.category) || 0}`} aria-hidden="true" />{categoryLabel(r.category)}</span></td>
                   <td>
                     <div className="weight-cell">
                       <span>{r.weight}</span>
@@ -171,6 +139,53 @@ function RulesTable({ rules }) {
               ))}
             </tbody>
           </table>
+        </div>
+      ) : <div id={bodyId} hidden />}
+    </section>
+  );
+}
+
+function RulesGroups({ rules }) {
+  const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useState(() => new Set());
+  const categories = useMemo(() => categoriesOf(rules), [rules]);
+  const maxWeight = Math.max(1, ...rules.map((r) => r.weight));
+
+  const needle = query.trim().toLowerCase();
+  const matches = (r) => !needle || [r.id, r.name, r.description, r.category, categoryLabel(r.category)].some((field) => field.toLowerCase().includes(needle));
+  const groups = categories
+    .map((category) => ({ category, rules: rules.filter((r) => r.category === category && matches(r)).sort(byWeight) }))
+    .filter((group) => group.rules.length > 0);
+  const shown = groups.reduce((sum, group) => sum + group.rules.length, 0);
+
+  // While searching, every group that has a match is open, so a hit is never hidden; collapsing is remembered for afterwards.
+  const isOpen = (category) => Boolean(needle) || !collapsed.has(category);
+  const toggle = (category) => setCollapsed((prev) => {
+    const next = new Set(prev);
+    if (next.has(category)) next.delete(category);
+    else next.add(category);
+    return next;
+  });
+
+  return (
+    <>
+      <div className="controls">
+        <label htmlFor="rule-search" className="sr-only">Search rules</label>
+        <input id="rule-search" type="search" placeholder="Search rules" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="chip-row">
+          <button type="button" className="ghost" onClick={() => setCollapsed(new Set())}>Expand all</button>
+          <button type="button" className="ghost" onClick={() => setCollapsed(new Set(categories))}>Collapse all</button>
+        </div>
+      </div>
+      <p className="muted" aria-live="polite">{`Showing ${shown} of ${rules.length} rules`}</p>
+      {groups.length === 0 ? (
+        <p className="empty">No rules match your search.</p>
+      ) : (
+        <div className="stack">
+          {groups.map((group) => (
+            <RuleGroup key={group.category} category={group.category} rules={group.rules} maxWeight={maxWeight}
+              open={isOpen(group.category)} onToggle={() => toggle(group.category)} />
+          ))}
         </div>
       )}
       {rules.some((r) => r.derived) ? (
@@ -200,9 +215,9 @@ export function RulesPage() {
           <h2 id="weights-title">Score weights</h2>
           <RulesCharts rules={rules} levels={data.levels} threshold={data.block_threshold} />
         </section>
-        <section className="card" aria-labelledby="all-rules-title">
+        <section aria-labelledby="all-rules-title">
           <h2 id="all-rules-title">All rules</h2>
-          <RulesTable rules={rules} />
+          <RulesGroups rules={rules} />
         </section>
       </div>
     );

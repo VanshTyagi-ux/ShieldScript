@@ -130,7 +130,7 @@ the verdict, score, the rules that fired and the input.
 | `/scanner` | The live scanner: a score gauge, where the score comes from, session history and insights, copy-as-JSON and share links, and the protected form |
 | `/live` | The live feed of scans sent by other apps (see [Dummy site and live feed](#dummy-site-and-live-feed)) |
 | `/how-it-works` | An interactive walk through the three steps (normalize, match, score) on the real detector |
-| `/rules` | Every rule with search, filters and sorting, plus charts of weights and categories |
+| `/rules` | Every rule, grouped by category in collapsible sections (with search and expand/collapse all), plus charts of weights and categories |
 | `/benchmarks` | Detector comparison, the unseen-source test, confusion counts, example misses, and the caveats |
 | `/api-docs` | The API reference, with a "Try it" box for every endpoint |
 | `/about` | Limitations, how it is built, and the roadmap |

@@ -9,8 +9,13 @@ const reload = vi.fn();
 const respond = (over = {}) => useApi.mockReturnValue({ status: "ok", data: RULES_FIXTURE, error: null, reload, ...over });
 const mount = () => render(<RulesPage />);
 const withRules = (rules) => ({ ...RULES_FIXTURE, rules });
-const tableIds = () => [...document.querySelectorAll(".rules-table tbody tr")].map((row) => row.querySelector("code").textContent);
-const sortButton = (name) => screen.getByRole("button", { name });
+const search = (value) => fireEvent.change(screen.getByRole("searchbox", { name: "Search rules" }), { target: { value } });
+const groups = () => [...document.querySelectorAll(".rules-group")];
+const groupNames = () => groups().map((g) => g.querySelector(".group-toggle .cat").textContent);
+const groupHeader = (name) => groups().find((g) => g.querySelector(".group-toggle .cat").textContent === name).querySelector(".group-toggle");
+const idsIn = (name) => [...groups().find((g) => g.querySelector(".group-toggle .cat").textContent === name).querySelectorAll("tbody tr")]
+  .map((row) => row.querySelector("code").textContent);
+const allIds = () => groups().flatMap((g) => [...g.querySelectorAll("tbody tr")].map((row) => row.querySelector("code").textContent));
 
 beforeEach(() => { useApi.mockReset(); reload.mockReset(); respond(); });
 
@@ -43,7 +48,7 @@ describe("RulesPage: data", () => {
   it("keeps showing the rules while they reload", () => {
     respond({ status: "loading" });
     mount();
-    expect(tableIds()).toHaveLength(8);
+    expect(allIds()).toHaveLength(8);
   });
 
   it("says so when the server returns no rules", () => {
@@ -53,61 +58,108 @@ describe("RulesPage: data", () => {
   });
 });
 
-describe("RulesPage: table", () => {
-  it("lists every rule, heaviest first, with ties in id order", () => {
+describe("RulesPage: groups", () => {
+  it("groups the rules by category, in the fixed category order, all open at first", () => {
     mount();
-    expect(tableIds()).toEqual(["XSS001", "XSS020", "XSS002", "XSS040", "XSS041", "XSS031", "XSS033", "XSS099"]);
+    expect(groupNames()).toEqual(["Markup", "URI", "JavaScript", "CSS", "Template", "Evasion"]);
+    for (const g of groups()) expect(g.querySelector(".group-toggle").getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("filters by a search over id, name, description and category", () => {
+  it("says in each group's header how many rules and points it has", () => {
     mount();
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search rules" }), { target: { value: "popup" } });
-    expect(tableIds()).toEqual(["XSS033"]);
+    const text = (name) => groupHeader(name).textContent;
+    expect(text("Markup")).toBe("Markup · 2 rules · 130 points");
+    expect(text("URI")).toBe("URI · 1 rule · 70 points");
+    expect(text("JavaScript")).toBe("JavaScript · 2 rules · 60 points");
+    expect(text("Evasion")).toBe("Evasion · 1 rule · 15 points");
+  });
+
+  it("lists each group's rules heaviest first, with ties in id order", () => {
+    mount();
+    expect(idsIn("Markup")).toEqual(["XSS001", "XSS002"]);
+    expect(idsIn("JavaScript")).toEqual(["XSS031", "XSS033"]);
+    expect(allIds()).toHaveLength(8);
+  });
+
+  it("has no Category column, since the group header says it", () => {
+    mount();
+    const heads = [...groups()[0].querySelectorAll("thead th")].map((th) => th.textContent);
+    expect(heads).toEqual(["ID", "Name", "Weight", "What it looks for"]);
+  });
+
+  it("no longer offers category chips or column sorting", () => {
+    const { container } = mount();
+    expect(screen.queryByRole("button", { name: "All" })).toBeNull();
+    expect(container.querySelector(".th-sort")).toBeNull();
+    expect(container.querySelector(".chip-button")).toBeNull();
+  });
+
+  it("collapses and expands a group from its header, and reports it with aria-expanded", () => {
+    mount();
+    fireEvent.click(groupHeader("Markup"));
+    expect(groupHeader("Markup").getAttribute("aria-expanded")).toBe("false");
+    expect(idsIn("Markup")).toEqual([]);
+    expect(idsIn("URI")).toEqual(["XSS020"]);
+    fireEvent.click(groupHeader("Markup"));
+    expect(groupHeader("Markup").getAttribute("aria-expanded")).toBe("true");
+    expect(idsIn("Markup")).toEqual(["XSS001", "XSS002"]);
+  });
+
+  it("collapses and expands every group with Collapse all and Expand all", () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(allIds()).toEqual([]);
+    for (const g of groups()) expect(g.querySelector(".group-toggle").getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(allIds()).toHaveLength(8);
+  });
+
+  it("filters by a search over id, name, description and category, and hides groups with no match", () => {
+    mount();
+    search("popup");
+    expect(groupNames()).toEqual(["JavaScript"]);
+    expect(idsIn("JavaScript")).toEqual(["XSS033"]);
     expect(screen.getByText("Showing 1 of 8 rules")).toBeTruthy();
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search rules" }), { target: { value: "XSS04" } });
-    expect(tableIds()).toEqual(["XSS040", "XSS041"]);
+    expect(groupHeader("JavaScript").textContent).toBe("JavaScript · 1 rule · 20 points");
+    search("XSS04");
+    expect(groupNames()).toEqual(["CSS", "Template"]);
+    search("uri");
+    expect(groupNames()).toContain("URI");
+  });
+
+  it("opens the groups that match a search even if they were collapsed, and restores that when the search is cleared", () => {
+    mount();
+    fireEvent.click(groupHeader("Markup"));
+    search("Script tag");
+    expect(groupNames()).toEqual(["Markup"]);
+    expect(groupHeader("Markup").getAttribute("aria-expanded")).toBe("true");
+    expect(idsIn("Markup")).toEqual(["XSS001"]);
+    search("");
+    expect(groupHeader("Markup").getAttribute("aria-expanded")).toBe("false");
+    expect(idsIn("Markup")).toEqual([]);
   });
 
   it("says so when nothing matches", () => {
     mount();
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search rules" }), { target: { value: "zzzz" } });
+    search("zzzz");
     expect(screen.getByText("No rules match your search.")).toBeTruthy();
-    expect(tableIds()).toEqual([]);
-  });
-
-  it("filters by category chip and shows which chip is pressed", () => {
-    mount();
-    fireEvent.click(screen.getByRole("button", { name: "JavaScript" }));
-    expect(tableIds()).toEqual(["XSS031", "XSS033"]);
-    expect(screen.getByRole("button", { name: "JavaScript" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(screen.getByRole("button", { name: "All" }));
-    expect(tableIds()).toHaveLength(8);
-  });
-
-  it("sorts by a column and toggles direction, reporting aria-sort", () => {
-    mount();
-    const header = () => screen.getByRole("columnheader", { name: /Name/ });
-    expect(screen.getByRole("columnheader", { name: /Weight/ }).getAttribute("aria-sort")).toBe("descending");
-    fireEvent.click(sortButton("Name"));
-    expect(header().getAttribute("aria-sort")).toBe("ascending");
-    // names, case-insensitively: CSS, DOM, Encoded, Inline, javascript, Popup, Script, Template
-    const byName = ["XSS040", "XSS031", "XSS099", "XSS002", "XSS020", "XSS033", "XSS001", "XSS041"];
-    expect(tableIds()).toEqual(byName);
-    fireEvent.click(sortButton("Name"));
-    expect(header().getAttribute("aria-sort")).toBe("descending");
-    expect(tableIds()).toEqual([...byName].reverse());
-    fireEvent.click(sortButton("Weight"));
-    expect(screen.getByRole("columnheader", { name: /Weight/ }).getAttribute("aria-sort")).toBe("descending");
-    expect(tableIds()[0]).toBe("XSS001");
-    expect(header().getAttribute("aria-sort")).toBe("none");
+    expect(groups()).toHaveLength(0);
   });
 
   it("tags the derived rule and explains it", () => {
     mount();
-    const row = [...document.querySelectorAll(".rules-table tbody tr")].find((r) => r.querySelector("code").textContent === "XSS099");
+    const row = [...document.querySelectorAll(".rules-group tbody tr")].find((r) => r.querySelector("code").textContent === "XSS099");
     expect(within(row).getByText("derived")).toBeTruthy();
     expect(screen.getByText(/added when decoding changed the input/i)).toBeTruthy();
+  });
+
+  it("puts an unknown category in its own group after the known ones", () => {
+    respond({ data: withRules([
+      { id: "X1", name: "Known", category: "markup", weight: 10, description: "d", derived: false },
+      { id: "X2", name: "Odd", category: "mystery", weight: 5, description: "d", derived: false },
+    ]) });
+    mount();
+    expect(groupNames()).toEqual(["Markup", "Mystery"]);
   });
 
   it("renders rule text as literal text and copes with zero and huge weights", () => {

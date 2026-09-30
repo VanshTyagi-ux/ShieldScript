@@ -23,6 +23,13 @@ export const PAGES = `
 .live-table td { vertical-align: top; }
 .live-text { max-width: 360px; word-break: break-all; }
 .top-rules ul { padding: 0; margin: var(--space-3) 0 0; list-style: none; }
+.rules-group h3 { margin: 0; font-size: inherit; line-height: inherit; }
+.group-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); width: 100%; min-height: 0; padding: 0; color: inherit; background: transparent; border: 0; font: inherit; font-weight: 600; text-align: left; }
+.group-toggle:hover:not(:disabled) { color: var(--text); background: transparent; box-shadow: none; }
+.group-toggle:active:not(:disabled) { background: transparent; transform: none; }
+.group-toggle::before { content: "\\25B8"; color: var(--muted); }
+.group-toggle[aria-expanded="true"]::before { content: "\\25BE"; }
+.rules-group .table-wrap { margin-top: var(--space-3); }
 .rules-table { min-width: 720px; }
 .rules-table th, .rules-table td:first-child code { white-space: nowrap; word-break: normal; }
 .th-sort { min-height: 0; padding: 0; color: inherit; background: transparent; border: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; }
