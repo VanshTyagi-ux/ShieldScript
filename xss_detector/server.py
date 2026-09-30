@@ -27,7 +27,8 @@ from pathlib import Path
 from typing import Mapping
 
 from . import catalog
-from .config import DEFAULT_CONFIG, Config
+from .config import DEFAULT_CONFIG, Config, live_feed_enabled
+from .events import EventLog
 from .logs import configure_logging
 from .ml import HybridDetector
 from .ratelimit import TokenBucketLimiter, client_ip
@@ -36,7 +37,7 @@ from .submit import review_submission
 STATIC = Path(__file__).parent / "static"  # holds only the built React bundle, app.js
 BENCHMARK_PATH = Path(__file__).resolve().parent.parent / "reports" / "benchmark.json"
 # Client-side routes: these serve the app with 200. Any other extension-less non-API path serves it with 404.
-PAGES = ("/", "/scanner", "/how-it-works", "/rules", "/benchmarks", "/api-docs", "/about")
+PAGES = ("/", "/scanner", "/live", "/how-it-works", "/rules", "/benchmarks", "/api-docs", "/about")
 DESCRIPTION = ("Detect cross-site scripting in user input: decoding-aware rules plus an ML second opinion, "
                "benchmarked honestly.")
 FAVICON_SVG = (
@@ -72,8 +73,9 @@ REQUEST_TIMEOUT = 15  # seconds a client may stall on one socket read before we 
 LINGER_SECONDS = 2.0  # how long a refused (503) connection may stay open so the client can read the reply
 MAX_LINGERING = 256  # refused connections held at once; beyond this they are closed immediately
 REQUEST_ID_RE =re.compile(r"[A-Za-z0-9._-]{1,64}")  # an incoming X-Request-Id is only echoed if it matches
+SOURCE_RE = re.compile(r"[a-z0-9-]{1,40}")  # the "source" a scan request may name itself with (recorded for /live)
 # What one /api request costs the rate limiter; any other /api route (a 404) costs 1. /api/health is exempt.
-API_COSTS = {("GET", "/api/rules"): 0.25, ("GET", "/api/benchmark"): 0.25,
+API_COSTS = {("GET", "/api/rules"): 0.25, ("GET", "/api/benchmark"): 0.25, ("GET", "/api/events"): 0.25,
              ("POST", "/api/scan"): 1.0, ("POST", "/api/submit"): 1.0}
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'",
@@ -182,6 +184,8 @@ class HardenedServer(ThreadingHTTPServer):
                  max_connections: int = MAX_CONNECTIONS):
         self.config = config
         self.limiter = TokenBucketLimiter(config.rate_limit, config.rate_burst)
+        self.events = EventLog()
+        self.live_feed = live_feed_enabled(config, address[0])  # the bound host, not the config: flags can override it
         self._slots = threading.BoundedSemaphore(max_connections)
         self._deadline = getattr(handler_class, "deadline", REQUEST_TIMEOUT)
         self._open: dict[socket.socket, float] = {}  # connection -> monotonic time by which it must be done
@@ -461,6 +465,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, rules_payload())
         if route == "/api/benchmark":
             return self._benchmark()
+        if route == "/api/events":
+            return self._json(200, {"events": self._events(), "enabled": self._live_feed()})
         if route in PAGES:
             return self._send(200, SHELL_HTML, "text/html; charset=utf-8")
         if not route.startswith("/api/") and "." not in route.rsplit("/", 1)[-1]:
@@ -485,13 +491,45 @@ class Handler(BaseHTTPRequestHandler):
         except BadRequest as exc:
             self._json(exc.status, {"error": exc.message})
 
+    def _live_feed(self) -> bool:
+        return getattr(self.server, "live_feed", False)
+
+    def _events(self) -> list[dict]:
+        events = getattr(self.server, "events", None)
+        return events.snapshot() if events is not None and self._live_feed() else []
+
+    @staticmethod
+    def _source(data: dict) -> str | None:
+        """The optional 'source' naming the app that sent this scan; None when absent."""
+        if "source" not in data:
+            return None
+        source = data["source"]
+        if not isinstance(source, str) or not SOURCE_RE.fullmatch(source):
+            raise BadRequest(400, "'source' must be 1-40 lowercase letters, digits or hyphens")
+        return source
+
+    def _record(self, source: str | None, scanned: Mapping[str, tuple[str, dict]]) -> None:
+        """Log one event per scanned field (name -> (text, result)) when the caller named a source."""
+        if source is None or not self._live_feed():
+            return
+        for name, (text, result) in scanned.items():
+            self.server.events.add(source=source, field=name, blocked=result["is_malicious"], score=result["score"],
+                                   level=result["level"], rules=[f["rule_id"] for f in result["findings"]],
+                                   text=text)
+
     def _scan(self, data: dict) -> dict:
+        source = self._source(data)  # validated before anything is scanned
         if "fields" in data:
-            return {"results": {name: detector.scan(value) for name, value in self._fields(data).items()}}
+            fields = self._fields(data)
+            scanned = {name: (value, detector.scan(value)) for name, value in fields.items()}
+            self._record(source, scanned)
+            return {"results": {name: result for name, (_, result) in scanned.items()}}
         text = data.get("text")
         if not isinstance(text, str):
             raise BadRequest(400, "Provide 'text' (string) or 'fields' (object)")
-        return detector.scan(text)
+        result = detector.scan(text)
+        self._record(source, {"text": (text, result)})
+        return result
 
     def _submit(self, fields: dict[str, str]) -> tuple[int, dict]:
         return review_submission(detector, fields)
