@@ -17,7 +17,7 @@ const PAYLOAD = {
 export const ENDPOINTS = [
   {
     id: "scan", method: "POST", path: "/scan",
-    summary: "Score one string, or several named fields, and get the findings, the decoded text and the ML probability. The built-in server also takes an optional \"source\" (1-40 lowercase letters, digits or hyphens); scans that name one appear on the Live feed page.",
+    summary: "Score one string, or several named fields, and get the findings, the decoded text and the ML probability. The built-in server also takes an optional \"source\" (1-40 lowercase letters, digits or hyphens); scans that name one appear on the Live feed page. Every scan is also kept in the scan history unless the request sends \"store\": false.",
     requestExample: { text: "<img src=x onerror=alert(1)>" },
     responseExample: {
       score: 95, level: "critical", is_malicious: true, decode_layers: 0,
@@ -107,9 +107,49 @@ export const ENDPOINTS = [
     responseExample: { cleared: 12 },
   },
   {
+    id: "history", method: "GET", path: "/history?filter=all&limit=25", builtinOnly: true,
+    summary: "The stored scan history: every scan the server answered, newest first. filter is all, blocked or allowed; limit is 1-100 (default 25); offset pages through the rest. Empty, with enabled false, when storing is off (STORE_SCANS=0, or the default on a non-local host).",
+    responseExample: {
+      enabled: true,
+      items: [{
+        id: 12, ts: "2026-10-01T04:10:53.123+00:00", source: "dummy-site", field: "comment", text: "<img src=x onerror=alert(1)>",
+        blocked: true, score: 95, level: "critical", rules: ["XSS002", "XSS033"], ml_probability: 1, decode_layers: 0,
+      }],
+      total: 1,
+      counts: { all: 1, blocked: 1, allowed: 0 },
+    },
+  },
+  {
+    id: "history-export", method: "GET", path: "/history/export?format=csv", builtinOnly: true,
+    summary: "Download the whole history as CSV (format=csv) or JSON (format=json). In the CSV, text that starts with = + - or @ gets a leading quote so a spreadsheet cannot run it as a formula. 404 when storing is off.",
+    responseExample: { note: "A file download, not JSON: scriptshield-history.csv or scriptshield-history.json" },
+  },
+  {
+    id: "history-clear", method: "POST", path: "/history/clear", builtinOnly: true,
+    summary: "Delete every stored scan and get how many were deleted. Needs a JSON request (Content-Type: application/json). Returns 0 when storing is off.",
+    requestExample: {},
+    responseExample: { cleared: 12 },
+  },
+  {
+    id: "analytics", method: "GET", path: "/analytics?range=24h", builtinOnly: true,
+    summary: "The dashboard's summary of the stored scans for a range: 1h (12 five-minute buckets), 24h (24 hourly buckets, the default), 7d (7 daily buckets) or all (daily buckets, the most recent 60 days). Totals, a zero-filled timeline, risk levels, the top 10 rules, categories, the top 8 sources and fields, score bands and the last 5 critical scans. Empty, with enabled false, when storing is off. All times are UTC.",
+    responseExample: {
+      enabled: true, range: "24h", generated: "2026-10-01T12:34:56+00:00", bucket: "hour",
+      totals: { scans: 4, blocked: 3, allowed: 1, block_rate: 0.75, critical: 2, ml_escalations: 1 },
+      timeline: [{ t: "2026-10-01T12:00:00+00:00", blocked: 2, allowed: 1 }],
+      levels: { safe: 1, low: 0, medium: 1, high: 0, critical: 2 },
+      rules: [{ rule_id: "XSS002", name: "Inline event handler (known)", category: "markup", count: 3 }],
+      categories: [{ category: "markup", count: 3 }],
+      sources: [{ source: "blog", scans: 3, blocked: 2 }],
+      fields: [{ field: "comment", scans: 3, blocked: 2 }],
+      scores: [{ label: "0-9", count: 1 }, { label: "90-100", count: 2 }],
+      recent_critical: [{ ts: "2026-10-01T12:33:10.000+00:00", source: "blog", field: "comment", score: 100, rules: ["XSS002", "XSS030"], text: "<img src=x onerror=alert(document.cookie)>" }],
+    },
+  },
+  {
     id: "health", method: "GET", path: "/health",
     summary: "Server status: whether it is up, how many rules are loaded, and whether the ML model is loaded.",
-    responseExample: { status: "ok", service: "XSS Detector API", version: "0.1.0", rules: 24, ml_loaded: true },
+    responseExample: { status: "ok", service: "ScriptShield API", version: "0.1.0", rules: 24, ml_loaded: true },
   },
 ];
 

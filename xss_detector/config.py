@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Mapping, TypeVar
 
 T = TypeVar("T")
@@ -29,6 +30,8 @@ class Config:
     trusted_proxy_hops: int = 0
     enable_hsts: bool = False
     live_feed: str = "auto"  # record scans that name a source for /live: "auto" (loopback hosts only), "1", "0"
+    store_scans: str = "auto"  # keep every scan in a SQLite file for /history: "auto" (loopback hosts only), "1", "0"
+    scan_db: str = ""  # path of that file; empty means scans.db in the project root
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> "Config":
@@ -57,6 +60,8 @@ class Config:
                                     lambda v: _int_between(v, 0, None)),
             enable_hsts=read("ENABLE_HSTS", defaults.enable_hsts, _boolean),
             live_feed=read("LIVE_FEED", defaults.live_feed, lambda v: _choice(v, ("auto", "1", "0"))),
+            store_scans=read("STORE_SCANS", defaults.store_scans, lambda v: _choice(v, ("auto", "1", "0"))),
+            scan_db=read("SCAN_DB", defaults.scan_db, _nonempty),
         )
 
 
@@ -71,6 +76,22 @@ def live_feed_enabled(config: Config, host: str) -> bool:
     if config.live_feed == "auto":
         return host in LOOPBACK_HOSTS
     return config.live_feed == "1"
+
+
+DEFAULT_SCAN_DB = Path(__file__).resolve().parent.parent / "scans.db"
+
+
+def store_enabled(config: Config, host: str) -> bool:
+    """Whether scans are kept on disk: forced by STORE_SCANS=1/0, otherwise only on a loopback bind, because the
+    stored input is real user data that a public deployment should not collect by default."""
+    if config.store_scans == "auto":
+        return host in LOOPBACK_HOSTS
+    return config.store_scans == "1"
+
+
+def resolve_scan_db(config: Config) -> Path:
+    """The file the scan history is kept in."""
+    return Path(config.scan_db) if config.scan_db else DEFAULT_SCAN_DB
 
 
 def _nonempty(value: str) -> str:

@@ -21,7 +21,7 @@ describe("App shell", () => {
   it("renders the scanner page with a titled h1, header, main and footer", async () => {
     at("/scanner");
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Scanner");
-    expect(document.title).toBe("Scanner · XSS Detector");
+    expect(document.title).toBe("Scanner · ScriptShield");
     expect(screen.getByRole("banner")).toBeTruthy();
     expect(document.querySelector("main#main")).not.toBeNull();
     expect(screen.getByRole("contentinfo")).toBeTruthy();
@@ -42,7 +42,7 @@ describe("App shell", () => {
   it("shows a 404 page, with its own title, for an unknown path", () => {
     at("/definitely/not/here");
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Page not found");
-    expect(document.title).toBe("Page not found · XSS Detector");
+    expect(document.title).toBe("Page not found · ScriptShield");
     expect(screen.getByRole("link", { name: "Go to the home page" }).getAttribute("href")).toBe("/");
   });
 

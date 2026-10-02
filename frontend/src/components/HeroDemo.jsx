@@ -39,7 +39,7 @@ export function HeroDemo({ payloads = DEMO_PAYLOADS, typeMs = 35, holdMs = 2500 
     if (!(reduced || phase === "scanning") || results[index] !== undefined) return undefined;
     const controller = new AbortController();
     const settle = (value) => { if (!controller.signal.aborted) setResults((r) => ({ ...r, [index]: value })); };
-    Promise.resolve(post("/scan", { text }, controller.signal))
+    Promise.resolve(post("/scan", { text, store: false }, controller.signal)) // canned demo payloads: keep them out of the scan history
       .then(({ ok, data }) => settle(ok && data && typeof data.score === "number" ? data : "error"))
       .catch(() => settle("error"));
     return () => controller.abort();

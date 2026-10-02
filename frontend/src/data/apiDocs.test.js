@@ -8,7 +8,8 @@ describe("ENDPOINTS", () => {
   it("documents every endpoint once, with paths relative to the API base", () => {
     expect(ENDPOINTS.map((e) => `${e.method} ${e.path}`)).toEqual([
       "POST /scan", "POST /submit", "POST /sanitize", "GET /payloads?category=bypass&limit=2", "GET /payloads/facets",
-      "GET /payloads/1", "GET /rules", "GET /benchmark", "GET /events", "POST /events/clear", "GET /health",
+      "GET /payloads/1", "GET /rules", "GET /benchmark", "GET /events", "POST /events/clear", "GET /history?filter=all&limit=25",
+      "GET /history/export?format=csv", "POST /history/clear", "GET /analytics?range=24h", "GET /health",
     ]);
     expect(new Set(ENDPOINTS.map((e) => e.id)).size).toBe(ENDPOINTS.length);
     for (const e of ENDPOINTS) expect(e.path, e.id).not.toMatch(/^\/api\b/);
@@ -37,11 +38,11 @@ describe("endpointsFor", () => {
   });
 
   it("documents only what the built-in server has when they are off, in the original order", () => {
-    expect(endpointsFor(false).map((e) => e.id)).toEqual(["scan", "submit", "rules", "benchmark", "events", "events-clear", "health"]);
+    expect(endpointsFor(false).map((e) => e.id)).toEqual(["scan", "submit", "rules", "benchmark", "events", "events-clear", "history", "history-export", "history-clear", "analytics", "health"]);
   });
 
   it("marks exactly the endpoints only the built-in server has, and documents the live feed's event shape", () => {
-    expect(ENDPOINTS.filter((e) => e.builtinOnly).map((e) => e.id)).toEqual(["events", "events-clear"]);
+    expect(ENDPOINTS.filter((e) => e.builtinOnly).map((e) => e.id)).toEqual(["events", "events-clear", "history", "history-export", "history-clear", "analytics"]);
     expect(ENDPOINTS.find((e) => e.id === "events-clear")).toMatchObject({ method: "POST", path: "/events/clear" });
     expect(Object.keys(ENDPOINTS.find((e) => e.id === "events-clear").responseExample)).toEqual(["cleared"]);
     const events = ENDPOINTS.find((e) => e.id === "events");
@@ -50,8 +51,28 @@ describe("endpointsFor", () => {
     expect(Object.keys(events.responseExample.events[0])).toEqual(["id", "ts", "source", "field", "blocked", "score", "level", "rules", "text"]);
   });
 
+  it("documents the scan history: its page, the export and the clear", () => {
+    const history = byId("history");
+    expect(history).toMatchObject({ method: "GET", builtinOnly: true });
+    expect(Object.keys(history.responseExample)).toEqual(["enabled", "items", "total", "counts"]);
+    expect(Object.keys(history.responseExample.items[0])).toEqual(["id", "ts", "source", "field", "text", "blocked", "score", "level", "rules", "ml_probability", "decode_layers"]);
+    expect(Object.keys(history.responseExample.counts)).toEqual(["all", "blocked", "allowed"]);
+    expect(byId("history-export")).toMatchObject({ method: "GET", path: "/history/export?format=csv", builtinOnly: true });
+    expect(byId("history-export").summary).toMatch(/CSV/);
+    expect(byId("history-clear")).toMatchObject({ method: "POST", path: "/history/clear", builtinOnly: true });
+    expect(Object.keys(byId("history-clear").responseExample)).toEqual(["cleared"]);
+  });
+
+  it("documents the analytics endpoint and its summary shape", () => {
+    const analytics = ENDPOINTS.find((e) => e.id === "analytics");
+    expect(analytics).toMatchObject({ method: "GET", path: "/analytics?range=24h", builtinOnly: true });
+    expect(Object.keys(analytics.responseExample)).toEqual(["enabled", "range", "generated", "bucket", "totals", "timeline", "levels", "rules", "categories", "sources", "fields", "scores", "recent_critical"]);
+    expect(analytics.summary).toMatch(/1h/);
+  });
+
   it("says the scan endpoint takes an optional source", () => {
     expect(ENDPOINTS.find((e) => e.id === "scan").summary).toMatch(/source/);
+    expect(ENDPOINTS.find((e) => e.id === "scan").summary).toMatch(/"store": false/);
   });
 
   it("marks exactly the endpoints only the FastAPI backend has", () => {

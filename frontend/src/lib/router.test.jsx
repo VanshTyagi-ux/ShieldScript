@@ -42,6 +42,27 @@ describe("matchRoute", () => {
   });
 });
 
+describe("area", () => {
+  const AreaIs = () => <p data-testid="area">{useRoute().area}</p>;
+  const areaRoutes = [
+    { path: "/", title: "", component: () => <h1>Home</h1> },
+    { path: "/rules", title: "Rules", nav: "Rules", component: () => <h1>Rules</h1> },
+    { path: "/dashboard", title: "Dashboard", nav: "Dashboard", area: "security", component: () => <h1>Dashboard</h1> },
+  ];
+  const areaAt = (path) => {
+    window.history.pushState(null, "", path);
+    render(<RouterProvider routes={areaRoutes} notFound={notFound}><AreaIs /></RouterProvider>);
+    return screen.getByTestId("area").textContent;
+  };
+
+  it("is security for a security page and site for every other page, including home and not-found", () => {
+    expect(areaAt("/dashboard")).toBe("security");
+  });
+  it("is site for a main-site page", () => expect(areaAt("/rules")).toBe("site"));
+  it("is site for the home page", () => expect(areaAt("/")).toBe("site"));
+  it("is site for an unknown page", () => expect(areaAt("/nope")).toBe("site"));
+});
+
 describe("router", () => {
   it("renders the route for the current location", () => {
     mount("/rules");
@@ -103,20 +124,20 @@ describe("router", () => {
 
   it("sets the document title per route", () => {
     mount("/rules");
-    expect(document.title).toBe("Rules · XSS Detector");
+    expect(document.title).toBe("Rules · ScriptShield");
     fireEvent.click(screen.getByText("About link"));
-    expect(document.title).toBe("About · XSS Detector");
+    expect(document.title).toBe("About · ScriptShield");
   });
 
   it("uses the bare product title for a route with an empty title", () => {
     mount("/");
-    expect(document.title).toBe("XSS Detector");
+    expect(document.title).toBe("ScriptShield");
   });
 
   it("renders the not-found route, with its own title, for an unknown path", () => {
     mount("/definitely/not/here");
     expect(screen.getByRole("heading").textContent).toBe("Missing page");
-    expect(document.title).toBe("Page not found · XSS Detector");
+    expect(document.title).toBe("Page not found · ScriptShield");
   });
 
   it("refuses to be used outside a provider", () => {

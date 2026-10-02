@@ -88,7 +88,7 @@ MODES = {
     },
     "protected": {
         "title": "Protected board",
-        "blurb": "Input is scanned by the XSS detector (rules + ML) and HTML-escaped on output, and the page "
+        "blurb": "Input is scanned by ScriptShield (rules + ML) and HTML-escaped on output, and the page "
                  "sends a CSP that forbids inline scripts. The same samples are rejected or shown as plain text.",
     },
 }
@@ -108,7 +108,7 @@ body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-a
 a{color:var(--accent)}
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .wrap{max-width:980px;margin:0 auto;padding:0 16px}
-.site-header{background:var(--surface);border-bottom:1px solid var(--border)}
+.site-header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--border)}
 .site-header .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 24px;min-height:60px}
 .brand{display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:18px;color:var(--text);text-decoration:none}
 .brand::before{content:"";width:18px;height:18px;border-radius:50%;background:var(--accent)}
@@ -121,15 +121,18 @@ nav a[aria-current="page"]{background:var(--accent);color:var(--on-accent)}
 .banner.protected{background:var(--ok-soft);color:var(--ok)}
 main.wrap{padding-top:24px;padding-bottom:48px}
 .layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px;align-items:start}
-.card,.alert{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin:0 0 16px}
+.card,.alert{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin:0 0 16px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
 .card h1{margin:0 0 4px;font-size:26px;line-height:1.25}
 .card h2,.comments h2{margin:0 0 10px;font-size:18px}
 .card h3{margin:16px 0 4px;font-size:17px}
 .lede{color:var(--muted);margin:4px 0 12px}
 label{display:block;font-weight:600;font-size:14px;margin-bottom:10px}
 input,textarea{display:block;width:100%;margin-top:4px;padding:9px 11px;font:inherit;color:var(--text);background:var(--bg);
-border:1px solid var(--border);border-radius:8px}
-button{padding:8px 16px;font:inherit;font-weight:600;color:var(--on-accent);background:var(--accent);border:0;border-radius:8px;cursor:pointer}
+border:1px solid var(--border);border-radius:8px;transition:border-color .15s}
+input:hover,textarea:hover{border-color:var(--muted)}
+input:focus,textarea:focus{border-color:var(--accent)}
+button{padding:8px 16px;font:inherit;font-weight:600;color:var(--on-accent);background:var(--accent);border:0;border-radius:8px;cursor:pointer;transition:filter .15s,transform .15s}
+button:active{transform:translateY(1px)}
 button:hover{filter:brightness(1.08)}
 button.ghost{color:var(--text);background:var(--chip)}
 .samples{margin-top:12px;font-size:13px}
@@ -147,7 +150,10 @@ background:var(--accent);color:var(--on-accent);font-weight:700}
 .tag.p{background:var(--ok)}
 code{padding:1px 5px;background:var(--chip);border-radius:5px;font-size:.9em}
 .clear{margin-top:8px}
-@media (max-width: 760px){.layout{grid-template-columns:1fr}nav a{margin:0 4px 0 0}}
+@media (max-width: 760px){.layout{grid-template-columns:1fr}nav{width:100%;overflow-x:auto;white-space:nowrap;padding-bottom:6px}nav a{margin:0 4px 0 0}
+input,textarea{font-size:16px}button{min-height:44px}.samples button{min-height:36px}.card h1{font-size:22px}
+.card,.alert{padding:14px}main.wrap{padding-top:16px}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
 """
 
 DOC_TITLE = "Bean & Byte"

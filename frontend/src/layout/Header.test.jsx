@@ -20,13 +20,39 @@ function mount(at = "/scanner") {
     </ThemeProvider>,
   );
 }
+const SECURITY = [
+  { path: "/dashboard", title: "Dashboard", nav: "Dashboard", area: "security", component: empty },
+  { path: "/history", title: "History", nav: "History", area: "security", component: empty },
+  { path: "/live", title: "Live feed", nav: "Live", area: "security", component: empty },
+];
+function mountAreas(at) {
+  window.history.pushState(null, "", at);
+  return render(
+    <ThemeProvider>
+      <RouterProvider routes={[...routes, ...SECURITY]} notFound={{ title: "Not found", component: empty }}>
+        <Header />
+      </RouterProvider>
+    </ThemeProvider>,
+  );
+}
+const pages = () => within(within(nav()).getByRole("list")).getAllByRole("link").map((a) => a.textContent);
 const nav = () => screen.getByRole("navigation", { name: "Main" });
 const menuButton = () => screen.getByRole("button", { name: "Menu" });
+
+describe("Header: Security Dashboard pages", () => {
+  it("lists only the main-site pages; the Security Dashboard pages are in the sidebar", () => {
+    for (const at of ["/scanner", "/dashboard", "/history"]) {
+      const { unmount } = mountAreas(at);
+      expect(pages()).toEqual(["Scanner", "Rules"]);
+      unmount();
+    }
+  });
+});
 
 describe("Header", () => {
   it("has the brand link to the home page", () => {
     mount();
-    const brand = within(screen.getByRole("banner")).getByRole("link", { name: /XSS Detector/ });
+    const brand = within(screen.getByRole("banner")).getByRole("link", { name: /ScriptShield/ });
     expect(brand.getAttribute("href")).toBe("/");
   });
 

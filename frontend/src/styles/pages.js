@@ -6,6 +6,11 @@ export const PAGES = `
 .prose p { margin: 0 0 var(--space-3); }
 .prose ul { margin: 0 0 var(--space-4); padding-left: var(--space-5); }
 .prose li { margin: var(--space-1) 0; }
+/* About: one readable column on phones, two columns on wide screens (Limitations is the tall card on the right) */
+@media (min-width: 900px) {
+  .prose.about-grid { max-width: none; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .about-limits { grid-column: 2; grid-row: 1 / span 3; }
+}
 .callout { padding: var(--space-4); background: var(--accent-soft); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius); }
 
 .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
@@ -23,6 +28,13 @@ export const PAGES = `
 .live-table td { vertical-align: top; }
 .live-text { max-width: 360px; word-break: break-all; }
 .top-rules ul { padding: 0; margin: var(--space-3) 0 0; list-style: none; }
+/* History: filter chips, refresh/export/clear in one wrapping row, then the pager under the table */
+.history-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: var(--space-4) 0; }
+.history-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 var(--space-3); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: 13px; font-weight: 600; text-decoration: none; transition: background-color var(--t-fast), border-color var(--t-fast); }
+.history-link:hover { color: var(--text); background: var(--surface-2); border-color: var(--muted); }
+/* Dashboard: the previous range stays up, dimmed, while the new one loads */
+.is-busy { opacity: .6; transition: opacity var(--t-fast); }
+.history-pager { display: flex; align-items: center; justify-content: center; gap: var(--space-4); margin-top: var(--space-4); }
 .rules-group h3 { margin: 0; font-size: inherit; line-height: inherit; }
 .group-toggle { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--space-2); width: 100%; min-height: 0; padding: 0; color: inherit; background: transparent; border: 0; font: inherit; font-weight: 600; text-align: left; }
 .group-toggle:hover:not(:disabled) { color: var(--text); background: transparent; box-shadow: none; }

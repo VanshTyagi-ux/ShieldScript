@@ -8,7 +8,7 @@ export function Footer() {
     <footer className="site-footer">
       <div className="site-footer-inner">
         <div>
-          <Link to="/" className="brand"><Shield /><span>XSS Detector</span></Link>
+          <Link to="/" className="brand"><Shield /><span>ScriptShield</span></Link>
           <p className="muted">Detection is heuristic. Always encode output and use a CSP.</p>
         </div>
         <nav aria-label="Footer">

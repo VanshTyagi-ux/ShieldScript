@@ -55,11 +55,11 @@ function shell({ dev }) {
   return [
     "<!doctype html>", '<html lang="en">', "<head>", '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    `<title>XSS Detector${dev ? " (dev)" : ""}</title>`,
+    `<title>ScriptShield${dev ? " (dev)" : ""}</title>`,
     `<meta name="description" content="${DESCRIPTION}">`,
     '<meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">',
     '<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">',
-    '<meta property="og:title" content="XSS Detector">', `<meta property="og:description" content="${DESCRIPTION}">`,
+    '<meta property="og:title" content="ScriptShield">', `<meta property="og:description" content="${DESCRIPTION}">`,
     '<meta property="og:type" content="website">', '<link rel="icon" href="/favicon.svg" type="image/svg+xml">',
     "</head>", "<body>", "<noscript>This page needs JavaScript.</noscript>", '<div id="root"></div>',
     ...(dev ? ['<script src="/livereload.js"></script>'] : []),

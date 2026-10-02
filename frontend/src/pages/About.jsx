@@ -5,11 +5,11 @@ export function AboutPage() {
   return (
     <div className="page">
       <PageHeading description="What this tool does, where it stops, and what comes next.">About</PageHeading>
-      <div className="stack prose">
+      <div className="stack prose about-grid">
         <section className="card">
           <h2>What it is</h2>
           <p>
-            XSS Detector flags likely cross-site scripting payloads in user input. It decodes the input the way a browser
+            ScriptShield flags likely cross-site scripting payloads in user input. It decodes the input the way a browser
             might, runs weighted rules over the result, and lets an ML model escalate cases the rules only half-recognise.
             Every finding says which rule fired and why.
           </p>
@@ -18,7 +18,7 @@ export function AboutPage() {
           </p>
         </section>
 
-        <section className="card">
+        <section className="card about-limits">
           <h2>Limitations</h2>
           <ul>
             <li>Detection is heuristic. Always HTML-encode output and use a Content Security Policy; treat this as an extra layer.</li>

@@ -102,6 +102,18 @@ table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 20
 th, td { padding: var(--space-2) var(--space-3); text-align: left; vertical-align: top; overflow-wrap: break-word; }
 th { color: var(--muted); background: var(--surface-2); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 tr + tr td { border-top: 1px solid var(--border); }
+tbody tr { transition: background-color var(--t-fast); }
+tbody tr:hover { background: var(--surface-2); }
+@media (max-width: 719px) {
+  input, textarea { min-height: 44px; font-size: 16px; }
+  textarea { font-size: 14px; }
+  button { min-height: 44px; }
+  button.ghost { min-height: 40px; }
+  button.sample { min-height: 36px; }
+  .row { gap: var(--space-2); }
+  .row > button:not(.sample) { flex: 1 1 auto; }
+  .empty { padding: var(--space-6) var(--space-4); }
+}
 .errors { margin: 0; padding-left: var(--space-5); }
 .errors li { margin: var(--space-1) 0; }
 `;

@@ -55,7 +55,7 @@ class FrontendServingTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(headers["Content-Type"].startswith("text/html"))
         self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
-        for expected in ("<title>XSS Detector</title>", '<div id="root">', '<script src="/app.js"></script>', "<noscript>"):
+        for expected in ("<title>ScriptShield</title>", '<div id="root">', '<script src="/app.js"></script>', "<noscript>"):
             self.assertIn(expected, html)
 
     def test_shell_head_has_icon_description_theme_color_and_open_graph(self):

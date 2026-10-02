@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Footer } from "./layout/Footer.jsx";
 import { Header } from "./layout/Header.jsx";
+import { Sidebar, useSidebarPages } from "./layout/Sidebar.jsx";
 import { AnnounceProvider, useAnnounce } from "./lib/announce.jsx";
 import { HistoryProvider } from "./lib/history.jsx";
 import { RouterProvider, Routes, useRoute } from "./lib/router.jsx";
@@ -10,6 +11,7 @@ import { NOT_FOUND, ROUTES } from "./routes.js";
 
 function Shell() {
   const { path, route, notFound } = useRoute();
+  const hasSidebar = useSidebarPages().length > 0;
   const announce = useAnnounce();
   const firstRender = useRef(true);
 
@@ -27,7 +29,10 @@ function Shell() {
   return (
     <>
       <Header />
-      <main id="main" className={path === "/" ? "main-full-bleed" : undefined}><Routes /></main>
+      <div className={hasSidebar ? "app-body has-sidebar" : "app-body"}>
+        <Sidebar />
+        <main id="main" className={path === "/" ? "main-full-bleed" : undefined}><Routes /></main>
+      </div>
       <Footer />
     </>
   );

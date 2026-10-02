@@ -1,4 +1,4 @@
-# XSS Attack Detection
+# ScriptShield: XSS Attack Detection
 
 Detects likely Cross-Site Scripting (XSS) payloads in user input fields. Python 3.10+, **standard library only** - nothing to install.
 
@@ -120,20 +120,77 @@ the verdict, score, the rules that fired and the input. **Clear feed** empties i
 - **Builds.** `/live` and `GET /api/events` belong to the built-in server. The FastAPI-backed build of the UI
   (`VITE_BACKEND_PAGES=true`) leaves the page out, because that backend has no `/events`.
 
+## Scan history
+
+Every scan the built-in server answers (the Scanner page, the protected form, the dummy blog and direct API calls)
+is kept in a SQLite file, so the **History** page can list what was tested, still there after a restart.
+
+- **What is stored.** One row per scanned field: time (UTC), `source` (empty if none), field name, the input text
+  (cut to 1,000 characters), blocked or allowed, score, level, the rules that fired, the ML probability and the
+  number of decoding layers. At most 10,000 rows are kept; the oldest go first.
+- **Where.** `scans.db` in the project root (git-ignored), or the file named by `SCAN_DB`. The standard library's
+  `sqlite3` is used, so nothing needs installing.
+- **Privacy.** The stored input is real user data. Like the live feed, saving is **on by default only when the server
+  binds to a loopback address**; on a public host (`HOST=0.0.0.0`) it is off unless you set `STORE_SCANS=1`. Set
+  `STORE_SCANS=0` to turn it off anywhere. If the file cannot be opened the server logs a warning and carries on
+  without saving; a scan never fails because of storage.
+- **Opting out.** A scan request that sends `"store": false` is not kept (the Home page's canned demo scans do
+  this, so History shows only what someone actually tested).
+- **Typing.** The Scanner scans again each time you pause while typing. A scan with the same source and field,
+  arriving within 3 seconds, whose text extends the previous row's text replaces that row instead of adding one.
+  This can occasionally merge two real scans typed within 3 seconds of each other.
+- **API.** `GET /api/history?filter=all|blocked|allowed&limit=1-100&offset=0` (newest first, with counts),
+  `GET /api/history/export?format=csv|json` (a download; CSV cells starting with `=`, `+`, `-` or `@` get a leading
+  `'` so a spreadsheet cannot run them as formulas) and `POST /api/history/clear` (needs `Content-Type:
+  application/json`).
+- **Builds.** `/history` and these routes belong to the built-in server; the FastAPI-backed build of the UI leaves
+  the page out.
+
+## Dashboard
+
+The **Dashboard** page (`/dashboard`) analyses the stored scan history, so it is off whenever saving scans is off
+(see Scan history). It refreshes every 5 seconds while the tab is open and pauses while it is hidden.
+
+- **Range.** Last hour (12 five-minute buckets), Last 24 hours (24 hourly buckets, the default), Last 7 days (7
+  daily buckets) or All (daily buckets, the most recent 60 days; at most the 10,000 stored scans). Times are UTC.
+- **What it shows.** Total, blocked, allowed, block rate, critical scans and **ML escalations** (blocked although the
+  rules scored below the block threshold, so the ML second opinion made the difference); a blocked/allowed timeline;
+  the top 10 rules and the rule categories; the risk-level mix; the top sources and fields; the score distribution;
+  the last 5 critical attacks (input cut to 120 characters, shown as plain text); and the benchmark's recall,
+  precision and false-positive rate.
+- **Quality.** Live traffic has no labels, so the dashboard shows the live block rate but never a live recall; recall
+  and precision come from the benchmark (`python -m xss_detector evaluate`).
+- **API.** `GET /api/analytics?range=1h|24h|7d|all` returns the whole summary in one response (`{"enabled": false}` when
+  saving is off). It belongs to the built-in server; the FastAPI-backed build of the UI leaves the page out.
+
 ## The site
 
-`python -m xss_detector serve` serves a small multi-page site (a React app; see the UI section above for building it):
+`python -m xss_detector serve` serves a small multi-page site (a React app; see the UI section above for building it).
+
+The header has a switch between two areas, **Main site** and **Security Dashboard**, and its menu lists only the pages
+of the area you are in. The Security Dashboard holds the monitoring pages (`/dashboard`, `/history`, `/live`); the main
+site holds everything else. Page addresses are unchanged. The Security Dashboard area is offered only when the build has
+those pages (the FastAPI-backed build does not).
+
+**Main site pages**
 
 | Page | What it shows |
 |---|---|
 | `/` Home | A live auto-playing demo, headline numbers from the benchmark, features, and how to use it in your app |
 | `/scanner` | The live scanner: a score gauge, where the score comes from, session history and insights, copy-as-JSON and share links, and the protected form |
-| `/live` | The live feed of scans sent by other apps (see [Dummy site and live feed](#dummy-site-and-live-feed)) |
 | `/how-it-works` | An interactive walk through the three steps (normalize, match, score) on the real detector |
 | `/rules` | Every rule, grouped by category in collapsible sections (with search and expand/collapse all), plus charts of weights and categories |
 | `/benchmarks` | Detector comparison, the unseen-source test, confusion counts, example misses, and the caveats |
 | `/api-docs` | The API reference, with a "Try it" box for every endpoint |
 | `/about` | Limitations, how it is built, and the roadmap |
+
+**Security Dashboard pages**
+
+| Page | What it shows |
+|---|---|
+| `/dashboard` | The analysis of the stored scans (see [Dashboard](#dashboard)) |
+| `/history` | Every stored scan, with filter, export and clear (see [Scan history](#scan-history)) |
+| `/live` | The live feed of scans sent by other apps (see [Dummy site and live feed](#dummy-site-and-live-feed)) |
 
 Charts are hand-drawn SVG (no charting library); every chart has tooltips on hover and keyboard focus and a "View as table" toggle. The theme follows your system and can be switched (light, dark, system) from the header. The scanner keeps your scan history in `sessionStorage` (this tab only, cleared with **Clear history**), and a **share link** puts the scanned text in the URL, so anyone who has the link can read it. Unknown paths return the app with a real HTTP 404.
 
@@ -217,6 +274,8 @@ The server is stdlib-only and configured by environment variables (command-line 
 | `TRUSTED_PROXY_HOPS` | `0` | proxies in front of the app whose `X-Forwarded-For` entry to trust |
 | `ENABLE_HSTS` | off | send `Strict-Transport-Security` (turn on only when the site is served over HTTPS) |
 | `LIVE_FEED` | `auto` | record scans that name a `source` for `/live`: `auto` (only on a loopback bind), `1` or `0` |
+| `STORE_SCANS` | `auto` | keep every scan in a SQLite file for `/history`: `auto` (only on a loopback bind), `1` or `0` |
+| `SCAN_DB` | `scans.db` in the project root | path of that file |
 
 **On Render:** push the repository to GitHub, then *New > Blueprint Instance* and pick it. `render.yaml` builds the `Dockerfile` (a non-root, stdlib-only image), points the platform health check at `/api/health`, and sets `TRUSTED_PROXY_HOPS=1`, `LOG_FORMAT=json` and `ENABLE_HSTS=1`. Render terminates HTTPS and injects `$PORT`. For Railway or Fly.io use the same variables; look at the `X-Forwarded-For` header your platform sends before choosing `TRUSTED_PROXY_HOPS`.
 
@@ -243,7 +302,7 @@ CI (`.github/workflows/ci.yml`) runs both test suites, `npm audit`, rebuilds the
 ```
 xss_detector/  detector.py (rule engine)  ml.py (ML + hybrid)  corpus.py / evaluate.py (benchmark)
                sanitizer.py  server.py  demo.py  cli.py  model.json  static/app.js (built UI bundle)
-               config.py (env settings)  ratelimit.py  logs.py  events.py (live feed)  catalog.py / submit.py (shared with the backend)
+               config.py (env settings)  ratelimit.py  logs.py  events.py (live feed)  store.py (scan history)  analytics.py (dashboard summary)  catalog.py / submit.py (shared with the backend)
 frontend/      React source for the UI (npm run build -> xss_detector/static/app.js; npm run dev -> :5173)
 backend/       FastAPI API: app/ (api, core, models, schemas, services)  scripts/ (seed_payloads)  tests/  Dockerfile
 docker-compose.yml  .env.example   PostgreSQL + backend + frontend (nginx); frontend/Dockerfile and frontend/nginx.conf

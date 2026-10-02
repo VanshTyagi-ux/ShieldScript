@@ -2,8 +2,10 @@ import os
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
-from xss_detector.config import Config, ConfigError, DEFAULT_CONFIG, live_feed_enabled
+from xss_detector.config import (Config, ConfigError, DEFAULT_CONFIG, DEFAULT_SCAN_DB, live_feed_enabled,
+                                 resolve_scan_db, store_enabled)
 
 
 class ConfigFromEnvTests(unittest.TestCase):
@@ -38,6 +40,35 @@ class ConfigFromEnvTests(unittest.TestCase):
         self.assertFalse(live_feed_enabled(Config(), "0.0.0.0"))
         self.assertTrue(live_feed_enabled(Config(live_feed="1"), "0.0.0.0"))
         self.assertFalse(live_feed_enabled(Config(live_feed="0"), "127.0.0.1"))
+
+    def test_store_scans_defaults_to_auto_and_rejects_other_values(self):
+        self.assertEqual(Config().store_scans, "auto")
+        self.assertEqual(Config.from_env({"STORE_SCANS": "1"}).store_scans, "1")
+        with self.assertRaises(ConfigError) as ctx:
+            Config.from_env({"STORE_SCANS": "maybe"})
+        self.assertIn("STORE_SCANS", str(ctx.exception))
+
+    def test_store_enabled_rules(self):
+        for host in ("127.0.0.1", "localhost", "::1"):
+            self.assertTrue(store_enabled(Config(), host), host)
+        self.assertFalse(store_enabled(Config(), "0.0.0.0"))
+        self.assertTrue(store_enabled(Config(store_scans="1"), "0.0.0.0"))
+        self.assertFalse(store_enabled(Config(store_scans="0"), "127.0.0.1"))
+
+    def test_scan_db_defaults_to_the_project_root_and_env_overrides(self):
+        self.assertEqual(Config().scan_db, "")
+        self.assertEqual(resolve_scan_db(Config()), DEFAULT_SCAN_DB)
+        self.assertEqual(DEFAULT_SCAN_DB.name, "scans.db")
+        self.assertEqual(Config.from_env({"SCAN_DB": "x/y.db"}).scan_db, "x/y.db")
+        self.assertEqual(resolve_scan_db(Config(scan_db="x/y.db")), Path("x/y.db"))
+
+    def test_the_real_default_scan_db_is_scans_db_in_the_project_root(self):
+        # tests/__init__.py redirects DEFAULT_SCAN_DB for the test run, so ask a fresh interpreter
+        root = Path(__file__).resolve().parent.parent
+        out = subprocess.run(
+            [sys.executable, "-c", "from xss_detector.config import DEFAULT_SCAN_DB; print(DEFAULT_SCAN_DB)"],
+            cwd=root, capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(Path(out), root / "scans.db")
 
     def test_config_is_frozen(self):
         with self.assertRaises(Exception):

@@ -97,13 +97,13 @@ const check = (name, ok, detail = "") => { results.push(ok); console.log(`${ok ?
 const eq = (name, actual, expected) => check(name, JSON.stringify(actual) === JSON.stringify(expected), `got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}`);
 
 const PAGES = [
-  { path: "/", h1: "Catch XSS in user input before it reaches your page.", title: "XSS Detector", nav: null },
-  { path: "/scanner", h1: "Scanner", title: "Scanner · XSS Detector", nav: "Scanner" },
-  { path: "/how-it-works", h1: "How it works", title: "How it works · XSS Detector", nav: "How it works" },
-  { path: "/rules", h1: "Rules", title: "Rules · XSS Detector", nav: "Rules" },
-  { path: "/benchmarks", h1: "Benchmarks", title: "Benchmarks · XSS Detector", nav: "Benchmarks" },
-  { path: "/api-docs", h1: "API reference", title: "API docs · XSS Detector", nav: "API" },
-  { path: "/about", h1: "About", title: "About · XSS Detector", nav: "About" },
+  { path: "/", h1: "Catch XSS in user input before it reaches your page.", title: "ScriptShield", nav: null },
+  { path: "/scanner", h1: "Scanner", title: "Scanner · ScriptShield", nav: "Scanner" },
+  { path: "/how-it-works", h1: "How it works", title: "How it works · ScriptShield", nav: "How it works" },
+  { path: "/rules", h1: "Rules", title: "Rules · ScriptShield", nav: "Rules" },
+  { path: "/benchmarks", h1: "Benchmarks", title: "Benchmarks · ScriptShield", nav: "Benchmarks" },
+  { path: "/api-docs", h1: "API reference", title: "API docs · ScriptShield", nav: "API" },
+  { path: "/about", h1: "About", title: "About · ScriptShield", nav: "About" },
 ];
 const BG = { light: "rgb(248, 250, 252)", dark: "rgb(11, 18, 32)" };
 
@@ -138,7 +138,7 @@ try {
   }
   expect404 = true;
   await visit("/nope");
-  eq("/nope: 404 page and title", [await text("main h1"), await js("document.title")], ["Page not found", "Page not found · XSS Detector"]);
+  eq("/nope: 404 page and title", [await text("main h1"), await js("document.title")], ["Page not found", "Page not found · ScriptShield"]);
   expect404 = false;
 
   // ---- client-side navigation keeps the page and moves focus -----------------------------------

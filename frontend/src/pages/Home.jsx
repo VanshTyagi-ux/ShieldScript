@@ -5,7 +5,7 @@ import { FeatureGrid } from "../components/FeatureGrid.jsx";
 import { HeroDemo } from "../components/HeroDemo.jsx";
 import { Reveal } from "../components/Reveal.jsx";
 import { ENDPOINTS, curlFor } from "../data/apiDocs.js";
-import { Link } from "../lib/router.jsx";
+import { Link, useRoute } from "../lib/router.jsx";
 import { useApi } from "../lib/useApi.js";
 
 const PYTHON_SAMPLE = `from xss_detector import scan
@@ -47,6 +47,7 @@ function Stats({ benchmark, health }) {
 export function HomePage() {
   const benchmark = useApi("/benchmark");
   const health = useApi("/health");
+  const hasDashboard = useRoute().routes.some((r) => r.path === "/dashboard");
   return (
     <div className="page home">
       <section className="hero-block bleed">
@@ -57,6 +58,7 @@ export function HomePage() {
             <div className="row">
               <Link className="button-link" to="/scanner">Try the scanner</Link>
               <Link className="button-link secondary" to="/how-it-works">See how it works</Link>
+              {hasDashboard ? <Link className="button-link secondary" to="/dashboard">Open the dashboard</Link> : null}
             </div>
           </div>
           <HeroDemo />

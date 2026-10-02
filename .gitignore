@@ -4,3 +4,10 @@
 # Python bytecode (the backend/ and frontend/ folders have their own ignore files)
 __pycache__/
 *.pyc
+
+# Local scratch for the plan executor
+.superpowers/
+
+# Scan history (real input from real runs)
+scans.db
+scans.db-journal

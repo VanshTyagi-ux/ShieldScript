@@ -17,27 +17,32 @@ import math
 import re
 import signal
 import socket
+import sqlite3
 import sys
 import threading
 import time
+import urllib.parse
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Mapping
 
 from . import catalog
-from .config import DEFAULT_CONFIG, Config, live_feed_enabled
+from .analytics import RANGES, summarize, window_start
+from .config import DEFAULT_CONFIG, Config, live_feed_enabled, resolve_scan_db, store_enabled
 from .events import EventLog
 from .logs import configure_logging
 from .ml import HybridDetector
 from .ratelimit import TokenBucketLimiter, client_ip
+from .store import FILTERS, ScanStore, to_csv
 from .submit import review_submission
 
 STATIC = Path(__file__).parent / "static"  # holds only the built React bundle, app.js
 BENCHMARK_PATH = Path(__file__).resolve().parent.parent / "reports" / "benchmark.json"
 # Client-side routes: these serve the app with 200. Any other extension-less non-API path serves it with 404.
-PAGES = ("/", "/scanner", "/live", "/how-it-works", "/rules", "/benchmarks", "/api-docs", "/about")
+PAGES = ("/", "/scanner", "/live", "/history", "/dashboard", "/how-it-works", "/rules", "/benchmarks", "/api-docs", "/about")
 DESCRIPTION = ("Detect cross-site scripting in user input: decoding-aware rules plus an ML second opinion, "
                "benchmarked honestly.")
 FAVICON_SVG = (
@@ -51,18 +56,18 @@ SHELL_HTML = (
     '<!doctype html>\n<html lang="en">\n<head>\n'
     '<meta charset="utf-8">\n'
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-    "<title>XSS Detector</title>\n"
+    "<title>ScriptShield</title>\n"
     f'<meta name="description" content="{DESCRIPTION}">\n'
     '<meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">\n'
     '<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">\n'
-    '<meta property="og:title" content="XSS Detector">\n'
+    '<meta property="og:title" content="ScriptShield">\n'
     f'<meta property="og:description" content="{DESCRIPTION}">\n'
     '<meta property="og:type" content="website">\n'
     '<link rel="icon" href="/favicon.svg" type="image/svg+xml">\n'
     "</head>\n<body>\n"
     "<noscript>This page needs JavaScript.</noscript>\n"
     # React replaces the contents of #root on mount, so this only stays visible if app.js never loads.
-    '<div id="root"><p>Loading the XSS Detector UI... If this message stays, the frontend bundle is '
+    '<div id="root"><p>Loading the ScriptShield UI... If this message stays, the frontend bundle is '
     'missing: run "npm run build" in frontend/.</p></div>\n'
     '<script src="/app.js"></script>\n</body>\n</html>\n'
 ).encode("utf-8")
@@ -76,6 +81,7 @@ REQUEST_ID_RE =re.compile(r"[A-Za-z0-9._-]{1,64}")  # an incoming X-Request-Id i
 SOURCE_RE = re.compile(r"[a-z0-9-]{1,40}")  # the "source" a scan request may name itself with (recorded for /live)
 # What one /api request costs the rate limiter; any other /api route (a 404) costs 1. /api/health is exempt.
 API_COSTS = {("GET", "/api/rules"): 0.25, ("GET", "/api/benchmark"): 0.25, ("GET", "/api/events"): 0.25,
+             ("GET", "/api/history"): 0.25, ("GET", "/api/history/export"): 1.0, ("GET", "/api/analytics"): 0.5,
              ("POST", "/api/scan"): 1.0, ("POST", "/api/submit"): 1.0}
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; frame-ancestors 'none'",
@@ -192,7 +198,13 @@ class HardenedServer(ThreadingHTTPServer):
         self._lingering: dict[socket.socket, float] = {}  # refused connections -> when to close them
         self._open_lock = threading.Lock()
         self._watchdog_stop = threading.Event()
+        self.store: ScanStore | None = None  # the scan history; None when storing is off or the file cannot be opened
         super().__init__(address, handler_class)
+        if store_enabled(config, address[0]):  # opened after the bind, so a failed bind leaks no connection
+            try:
+                self.store = ScanStore(resolve_scan_db(config))
+            except (OSError, sqlite3.Error) as exc:
+                log.warning("scan history is off: cannot open %s (%s)", resolve_scan_db(config), exc)
         threading.Thread(target=self._watch, name="deadline-watchdog", daemon=True).start()
 
     def process_request(self, request, client_address):
@@ -259,6 +271,8 @@ class HardenedServer(ThreadingHTTPServer):
         try:
             super().server_close()  # waits for in-flight requests; the watchdog is what bounds that wait
         finally:
+            if self.store is not None:
+                self.store.close()
             self._watchdog_stop.set()
             with self._open_lock:
                 leftovers, self._lingering = list(self._lingering), {}
@@ -467,6 +481,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._benchmark()
         if route == "/api/events":
             return self._json(200, {"events": self._events(), "enabled": self._live_feed()})
+        if route == "/api/history":
+            return self._history()
+        if route == "/api/history/export":
+            return self._history_export()
+        if route == "/api/analytics":
+            return self._analytics()
         if route in PAGES:
             return self._send(200, SHELL_HTML, "text/html; charset=utf-8")
         if not route.startswith("/api/") and "." not in route.rsplit("/", 1)[-1]:
@@ -477,13 +497,15 @@ class Handler(BaseHTTPRequestHandler):
         route = self.path.split("?", 1)[0]
         if route.startswith("/api/") and self._limited(API_COSTS.get(("POST", route), 1.0)):
             return
-        if route not in ("/api/scan", "/api/submit", "/api/events/clear"):  # nothing else takes a body, so never parse one
+        if route not in ("/api/scan", "/api/submit", "/api/events/clear", "/api/history/clear"):  # nothing else takes a body, so never parse one
             self._drain_body()
             return self._json(404, {"error": "Not found"})
         try:
             data = self._read_json()
             if route == "/api/events/clear":
                 return self._clear_events()
+            if route == "/api/history/clear":
+                return self._history_clear()
             if route == "/api/scan":
                 return self._json(200, self._scan(data))
             if route == "/api/submit":
@@ -504,6 +526,76 @@ class Handler(BaseHTTPRequestHandler):
         events = getattr(self.server, "events", None)
         cleared = events.clear() if events is not None and self._live_feed() else 0
         return self._json(200, {"cleared": cleared})
+
+    def _query(self) -> dict[str, list[str]]:
+        return urllib.parse.parse_qs(self.path.partition("?")[2])
+
+    @staticmethod
+    def _whole_number(query: dict[str, list[str]], name: str, default: int, low: int, high: int | None = None) -> int:
+        """A numeric query parameter in [low, high]; `default` when absent."""
+        if name not in query:
+            return default
+        try:
+            number = int(query[name][0])
+        except ValueError:
+            raise BadRequest(400, f"'{name}' must be a whole number")
+        if number < low or (high is not None and number > high):
+            raise BadRequest(400, f"'{name}' must be at least {low}" if high is None
+                             else f"'{name}' must be between {low} and {high}")
+        return number
+
+    def _history(self) -> None:
+        """GET /api/history: a page of the stored scans, newest first, with counts for the filter chips."""
+        store = getattr(self.server, "store", None)
+        if store is None:
+            return self._json(200, {"enabled": False, "items": [], "total": 0,
+                                    "counts": {"all": 0, "blocked": 0, "allowed": 0}})
+        try:
+            query = self._query()
+            chosen = query.get("filter", ["all"])[0]
+            if chosen not in FILTERS:
+                raise BadRequest(400, "'filter' must be all, blocked or allowed")
+            limit = self._whole_number(query, "limit", 25, 1, 100)
+            offset = self._whole_number(query, "offset", 0, 0)
+        except BadRequest as exc:
+            return self._json(exc.status, {"error": exc.message})
+        self._json(200, {"enabled": True, **store.page(chosen, limit, offset)})
+
+    def _history_export(self) -> None:
+        """GET /api/history/export?format=csv|json: every stored scan as a download."""
+        chosen = self._query().get("format", [""])[0]
+        if chosen not in ("csv", "json"):
+            return self._json(400, {"error": "'format' must be csv or json"})
+        store = getattr(self.server, "store", None)
+        if store is None:
+            return self._json(404, {"error": "History is off"})
+        rows = store.export_rows()
+        body, content_type = ((to_csv(rows).encode("utf-8"), "text/csv; charset=utf-8") if chosen == "csv"
+                              else (json.dumps(rows).encode("utf-8"), "application/json"))
+        self._send(200, body, content_type,
+                   {"Content-Disposition": f'attachment; filename="scriptshield-history.{chosen}"'})
+
+    def _analytics(self) -> None:
+        """GET /api/analytics?range=1h|24h|7d|all: the dashboard's summary of the stored scans."""
+        query = urllib.parse.parse_qs(self.path.partition("?")[2], keep_blank_values=True)  # "range=" is a bad value
+        chosen = query.get("range", ["24h"])[0]
+        if chosen not in RANGES:
+            return self._json(400, {"error": "'range' must be 1h, 24h, 7d or all"})
+        store = getattr(self.server, "store", None)
+        if store is None:
+            return self._json(200, {"enabled": False})
+        now = datetime.now(timezone.utc)
+        threshold = detector.rules.block_threshold
+        self._json(200, summarize(store.rows_since(window_start(chosen, now)), range_key=chosen, now=now,
+                                  rules=catalog.rules_payload(threshold)["rules"], block_threshold=threshold))
+
+    def _history_clear(self) -> None:
+        """POST /api/history/clear: delete every stored scan. Needs a JSON content type for the same reason as
+        /api/events/clear: another website cannot send one without a CORS preflight, and this server sends none."""
+        if not self.headers.get("Content-Type", "").lower().startswith("application/json"):
+            raise BadRequest(415, "Content-Type must be application/json")
+        store = getattr(self.server, "store", None)
+        self._json(200, {"cleared": store.clear() if store is not None else 0})
 
     def _events(self) -> list[dict]:
         events = getattr(self.server, "events", None)
@@ -530,20 +622,52 @@ class Handler(BaseHTTPRequestHandler):
 
     def _scan(self, data: dict) -> dict:
         source = self._source(data)  # validated before anything is scanned
+        keep = self._keep(data)
         if "fields" in data:
             fields = self._fields(data)
             scanned = {name: (value, detector.scan(value)) for name, value in fields.items()}
             self._record(source, scanned)
+            if keep:
+                self._store(source, scanned)
             return {"results": {name: result for name, (_, result) in scanned.items()}}
         text = data.get("text")
         if not isinstance(text, str):
             raise BadRequest(400, "Provide 'text' (string) or 'fields' (object)")
         result = detector.scan(text)
         self._record(source, {"text": (text, result)})
+        if keep:
+            self._store(source, {"text": (text, result)})
         return result
 
+    @staticmethod
+    def _keep(data: dict) -> bool:
+        """The optional 'store' flag: false keeps this scan out of the scan history (the Home page's canned demo
+        scans send it, so History shows only what a person actually tested). Absent means keep."""
+        if "store" not in data:
+            return True
+        if not isinstance(data["store"], bool):
+            raise BadRequest(400, "'store' must be true or false")
+        return data["store"]
+
+    def _store(self, source: str | None, scanned: Mapping[str, tuple[str, dict]]) -> None:
+        """Keep one row per scanned field (name -> (text, result)) in the scan history. A storage problem is
+        logged and never fails the scan."""
+        store = getattr(self.server, "store", None)
+        if store is None:
+            return
+        try:
+            store.add_many([
+                dict(source=source, field=name, text=text, blocked=result["is_malicious"], score=result["score"],
+                     level=result["level"], rules=[f["rule_id"] for f in result["findings"]],
+                     ml_probability=result.get("ml_probability"), decode_layers=result.get("decode_layers", 0))
+                for name, (text, result) in scanned.items()])
+        except Exception:  # noqa: BLE001 - whatever goes wrong with the disk, the caller still gets its answer
+            log.warning("could not store the scan history", exc_info=True)
+
     def _submit(self, fields: dict[str, str]) -> tuple[int, dict]:
-        return review_submission(detector, fields)
+        status, payload = review_submission(detector, fields)
+        self._store(None, {name: (fields[name], result) for name, result in payload["results"].items()})
+        return status, payload
 
     def log_message(self, fmt, *args):
         log.info("%s - %s", self.address_string(), fmt % args)

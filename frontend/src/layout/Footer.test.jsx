@@ -60,6 +60,28 @@ describe("StatusBadge", () => {
   });
 });
 
+describe("Footer: areas", () => {
+  const areaRoutes = [
+    ...routes,
+    { path: "/dashboard", title: "Dashboard", nav: "Dashboard", area: "security", component: empty },
+    { path: "/history", title: "History", nav: "History", area: "security", component: empty },
+  ];
+  const links = (at) => {
+    window.history.pushState(null, "", at);
+    health({ data: HEALTH_FIXTURE });
+    render(<RouterProvider routes={areaRoutes} notFound={{ title: "x", component: empty }}><Footer /></RouterProvider>);
+    return within(screen.getByRole("navigation", { name: "Footer" })).getAllByRole("link").map((a) => a.textContent);
+  };
+
+  it("lists every page on the main site", () => {
+    expect(links("/scanner")).toEqual(["Scanner", "Dashboard", "History"]);
+  });
+
+  it("lists every page inside the Security Dashboard too", () => {
+    expect(links("/history")).toEqual(["Scanner", "Dashboard", "History"]);
+  });
+});
+
 describe("Footer", () => {
   it("shows the tagline, the nav links and the status", () => {
     health({ data: HEALTH_FIXTURE });

@@ -23,7 +23,7 @@ describe("buildRoutes", () => {
   it("without them: leaves those two pages out entirely, and keeps every other page", () => {
     const routes = buildRoutes(false);
     for (const path of BACKEND_ONLY) expect(paths(routes)).not.toContain(path);
-    expect(paths(routes)).toEqual(["/", "/scanner", "/live", "/how-it-works", "/rules", "/benchmarks", "/api-docs", "/about"]);
+    expect(paths(routes)).toEqual(["/", "/scanner", "/dashboard", "/history", "/live", "/how-it-works", "/rules", "/benchmarks", "/api-docs", "/about"]);
     expect(routes.filter((r) => r.nav).map((r) => r.nav)).not.toContain("Payloads");
   });
 
@@ -31,6 +31,27 @@ describe("buildRoutes", () => {
     expect(paths(buildRoutes(false))).toContain("/live");
     expect(paths(buildRoutes(true))).not.toContain("/live");
     expect(buildRoutes(false).find((r) => r.path === "/live")).toMatchObject({ title: "Live feed", nav: "Live" });
+  });
+
+  it("offers the history page only in builds served by the built-in server, right after the dashboard", () => {
+    expect(paths(buildRoutes(true))).not.toContain("/history");
+    expect(buildRoutes(false).find((r) => r.path === "/history")).toMatchObject({ title: "History", nav: "History" });
+    const nav = buildRoutes(false).filter((r) => r.nav).map((r) => r.nav);
+    expect(nav.indexOf("History")).toBe(nav.indexOf("Dashboard") + 1);
+  });
+
+  it("offers the dashboard only in builds served by the built-in server, first in the security area, before history and the live feed", () => {
+    expect(paths(buildRoutes(true))).not.toContain("/dashboard");
+    expect(buildRoutes(false).find((r) => r.path === "/dashboard")).toMatchObject({ title: "Dashboard", nav: "Dashboard" });
+    const nav = buildRoutes(false).filter((r) => r.nav).map((r) => r.nav);
+    expect(nav.indexOf("Dashboard")).toBe(nav.indexOf("History") - 1);
+    expect(nav.indexOf("Live")).toBe(nav.indexOf("History") + 1);
+  });
+
+  it("puts the live feed, history and dashboard in the security area, and nothing else", () => {
+    const security = buildRoutes(false).filter((r) => r.area === "security").map((r) => r.path);
+    expect(security).toEqual(["/dashboard", "/history", "/live"]);
+    expect(buildRoutes(true).filter((r) => r.area === "security")).toEqual([]);
   });
 
   it("ROUTES is the build's choice, and the default build has the backend pages", () => {

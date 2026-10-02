@@ -139,7 +139,7 @@ def _sample(items, n=12):
 def render_report(results: list[dict], data: dict) -> str:
     n_mal, n_ben = len(data["malicious"]["test"]), len(data["benign"]["test"])
     lines = [
-        "# XSS detector benchmark", "",
+        "# ScriptShield benchmark", "",
         f"Held-out test split: **{n_mal}** malicious payloads (SecLists public XSS lists), "
         f"**{n_ben}** benign inputs (Python docs text + synthetic form input), "
         f"**{len(data['hard'])}** hand-written hard negatives (never used for training).", "",

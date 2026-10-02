@@ -50,6 +50,8 @@ ${toneRules}
 .mark-group { cursor: default; outline: none; }
 .mark-group:hover .mark, .mark-group:focus-visible .mark { opacity: .8; }
 .hit { fill: transparent; }
+/* a 2px surface-coloured stroke is the gap between stacked segments (heights stay exactly proportional) */
+.segment { stroke: var(--surface); stroke-width: 2; }
 .mark-group:focus-visible .hit { stroke: var(--accent); stroke-width: 2; }
 
 /* sparkline / area (a tone class, if present, overrides the default accent colour) */

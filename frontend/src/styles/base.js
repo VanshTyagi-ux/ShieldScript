@@ -2,7 +2,8 @@
 export const BASE = `
 /* base */
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 15px/24px var(--font); -webkit-font-smoothing: antialiased; }
+html { overflow-x: clip; scroll-padding-top: 80px; }
+body { margin: 0; overflow-x: clip; background: var(--bg); color: var(--text); font: 15px/24px var(--font); -webkit-font-smoothing: antialiased; }
 ::selection { background: var(--accent); color: var(--on-accent); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

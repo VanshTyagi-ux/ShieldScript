@@ -31,10 +31,12 @@ export function ScannerPage() {
   return (
     <div className="page">
       <PageHeading description="Type or paste input to see how it scores. Every scan runs on the live detector.">Scanner</PageHeading>
-      <div className="page-grid">
-        <ScannerInput text={text} onChange={setText} />
-        <ResultPanel scan={scan} footer={scan.result ? <ResultActions result={scan.result} text={text} /> : null} />
-        <div className="wide">
+      <div className="page-grid scanner-grid">
+        <div className="scan-input"><ScannerInput text={text} onChange={setText} /></div>
+        <div className="scan-result">
+          <ResultPanel scan={scan} footer={scan.result ? <ResultActions result={scan.result} text={text} /> : null} />
+        </div>
+        <div className="scan-insights">
           <SessionInsights entries={entries} onRerun={setText} onClear={clear} />
         </div>
         <ProtectedForm onAnnounce={announce} />

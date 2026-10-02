@@ -45,7 +45,7 @@ describe("HeroDemo: the animation", () => {
     await steps(3);
     await flush();
     expect(post).toHaveBeenCalledTimes(1);
-    expect(post).toHaveBeenCalledWith("/scan", { text: "ab" }, expect.any(AbortSignal));
+    expect(post).toHaveBeenCalledWith("/scan", { text: "ab", store: false }, expect.any(AbortSignal)); // canned demo scans stay out of the history
     const result = container.querySelector(".demo-result");
     expect(result.textContent).toContain("Critical risk");
     expect(result.textContent).toContain("score 95/100");

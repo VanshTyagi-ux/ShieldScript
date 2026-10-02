@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class HealthResponse(BaseModel):
-    model_config = ConfigDict(json_schema_extra={"example": {"status": "ok", "service": "XSS Detector API",
+    model_config = ConfigDict(json_schema_extra={"example": {"status": "ok", "service": "ScriptShield API",
                                                              "version": "0.1.0", "rules": 24, "ml_loaded": True}})
 
     status: str = Field(description='Always "ok" while the process is serving requests')

@@ -1,4 +1,4 @@
-# XSS detector benchmark
+# ScriptShield benchmark
 
 Held-out test split: **2640** malicious payloads (SecLists public XSS lists), **4948** benign inputs (Python docs text + synthetic form input), **50** hand-written hard negatives (never used for training).
 

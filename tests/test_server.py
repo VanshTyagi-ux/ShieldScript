@@ -38,7 +38,7 @@ class ServerTests(unittest.TestCase):
     def test_index_and_security_headers(self):
         status, headers, body = self.request("/")
         self.assertEqual(status, 200)
-        self.assertIn(b"XSS Detector", body)
+        self.assertIn(b"ScriptShield", body)
         self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
         self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
 

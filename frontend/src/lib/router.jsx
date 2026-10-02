@@ -13,7 +13,7 @@ export function matchRoute(routes, pathname) {
   return routes.find((r) => r.path === path) || null;
 }
 
-const titleFor = (route) => (route && route.title ? `${route.title} · XSS Detector` : "XSS Detector");
+const titleFor = (route) => (route && route.title ? `${route.title} · ScriptShield` : "ScriptShield");
 
 export function RouterProvider({ routes, notFound, children }) {
   const [location, setLocation] = useState(readLocation);
@@ -36,7 +36,8 @@ export function RouterProvider({ routes, notFound, children }) {
     window.scrollTo(0, 0);
   }, []);
 
-  const value = useMemo(() => ({ ...location, route, routes, notFound, navigate }), [location, route, routes, notFound, navigate]);
+  const area = route && route.area === "security" ? "security" : "site"; // home and the not-found page belong to the main site
+  const value = useMemo(() => ({ ...location, route, routes, notFound, navigate, area }), [location, route, routes, notFound, navigate, area]);
   return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>;
 }
 
